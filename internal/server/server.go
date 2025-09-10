@@ -1,18 +1,17 @@
 package server
 
 import (
-	"context"
 	"log"
 	"strings"
 
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
+	"github.com/sokinpui/sllmi-go"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	pb "synapse/grpc"
 	"synapse/internal/models"
 	"synapse/internal/queue"
-	"github.com/sokinpui/sllmi-go"
 )
 
 const sentinel = "[DONE]"
