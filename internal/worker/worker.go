@@ -78,7 +78,9 @@ func (w *GenAIWorker) Run(ctx context.Context) {
 }
 
 func (w *GenAIWorker) processTask(ctx context.Context, task *models.GenerationTask) {
-	log.Printf("Processing task: %s", task.TaskID)
+	log.Printf("-> Processing task: %s", task.TaskID)
+	defer log.Printf("<- Finished task: %s", task.TaskID)
+
 	resultChannel := task.TaskID
 
 	defer func() {

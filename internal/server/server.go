@@ -35,6 +35,7 @@ func New(redisClient *redis.Client) *Server {
 func (s *Server) GenerateTask(req *pb.Request, stream pb.Generate_GenerateTaskServer) error {
 	taskID := uuid.New().String()
 	log.Printf("-> Received request, assigned task_id: %s", taskID)
+	defer log.Printf("<- Finished request for task_id: %s", taskID)
 
 	ctx := stream.Context()
 	resultChannel := taskID
