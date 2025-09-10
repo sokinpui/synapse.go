@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"time"
 
 	"github.com/redis/go-redis/v9"
 	"synapse/internal/models"
@@ -35,32 +34,50 @@ func New(redisClient *redis.Client, llmRegistry *sllmi.Registry) *GenAIWorker {
 
 // Run starts the worker's main loop.
 func (w *GenAIWorker) Run(ctx context.Context) {
-	log.Printf("%s started.", w.workerID)
+	log.Printf("%s started. Waiting for tasks...", w.workerID)
+
+	taskCh := make(chan *models.GenerationTask)
+
+	// Goroutine to fetch tasks from the queue
+	go func() {
+		defer close(taskCh)
+		for {
+			// Block indefinitely until a task is available or the context is canceled.
+			task, err := w.queue.Dequeue(ctx, 0)
+			if err != nil {
+				// Context cancellation will cause Dequeue to return an error,
+				// which is the expected way to stop this goroutine.
+				if err != context.Canceled {
+					log.Printf("Failed to dequeue from Redis: %v", err)
+				}
+				return
+			}
+			if task != nil {
+				select {
+				case taskCh <- task:
+				case <-ctx.Done():
+					return // Exit if context is canceled while waiting to send.
+				}
+			}
+		}
+	}()
+
 	for {
 		select {
+		case task, ok := <-taskCh:
+			if !ok {
+				log.Printf("%s dequeue channel closed, shutting down.", w.workerID)
+				return
+			}
+			w.processTask(ctx, task)
 		case <-ctx.Done():
 			log.Printf("%s shutting down.", w.workerID)
 			return
-		default:
-			w.processNextTask(ctx)
 		}
 	}
 }
 
-func (w *GenAIWorker) processNextTask(ctx context.Context) {
-	log.Println("Waiting for a generation task...")
-	task, err := w.queue.Dequeue(ctx, 0) // 0 timeout means block indefinitely
-	if err != nil {
-		if err != redis.Nil {
-			log.Printf("Failed to dequeue from Redis: %v. Retrying in 5 seconds.", err)
-			time.Sleep(5 * time.Second)
-		}
-		return
-	}
-	if task == nil {
-		return
-	}
-
+func (w *GenAIWorker) processTask(ctx context.Context, task *models.GenerationTask) {
 	log.Printf("Processing task: %s", task.TaskID)
 	resultChannel := task.TaskID
 
@@ -85,6 +102,10 @@ func (w *GenAIWorker) processNextTask(ctx context.Context) {
 	}
 
 	if err != nil {
+		if err == context.Canceled {
+			log.Printf("Task %s was canceled.", task.TaskID)
+			return
+		}
 		log.Printf("Error processing generation task %s: %v", task.TaskID, err)
 		errMsg := fmt.Sprintf("Error: %v", err)
 		w.redisClient.Publish(ctx, resultChannel, errMsg)
