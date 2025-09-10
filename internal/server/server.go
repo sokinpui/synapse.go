@@ -9,10 +9,10 @@ import (
 	"github.com/redis/go-redis/v9"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"sllmi-go"
 	pb "synapse/grpc"
 	"synapse/internal/models"
 	"synapse/internal/queue"
+	"github.com/sokinpui/sllmi-go"
 )
 
 const sentinel = "[DONE]"
@@ -60,13 +60,15 @@ func (s *Server) GenerateTask(req *pb.Request, stream pb.Generate_GenerateTaskSe
 }
 
 func (s *Server) createTask(taskID string, req *pb.Request) *models.GenerationTask {
-	var cfg *sllmigo.Config
+	var cfg *sllmi.Config
 	if req.Config != nil {
-		cfg = &sllmigo.Config{
-			Temperature:  req.Config.Temperature,
-			TopP:         req.Config.TopP,
-			TopK:         req.Config.TopK,
-			OutputLength: req.Config.OutputLength,
+		cfg = &sllmi.Config{
+			Temperature: req.Config.Temperature,
+			TopP:        req.Config.TopP,
+			TopK:        req.Config.TopK,
+		}
+		if req.Config.OutputLength != nil {
+			cfg.OutputLength = *req.Config.OutputLength
 		}
 	}
 

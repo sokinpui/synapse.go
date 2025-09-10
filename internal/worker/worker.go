@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
-	"sllmi-go"
 	"synapse/internal/models"
 	"synapse/internal/queue"
+	"github.com/sokinpui/sllmi-go"
 )
 
 const sentinel = "[DONE]"
@@ -20,11 +20,11 @@ type GenAIWorker struct {
 	workerID    string
 	redisClient *redis.Client
 	queue       *queue.RQueue
-	llmRegistry *sllmigo.Registry
+	llmRegistry *sllmi.Registry
 }
 
 // New creates a new GenAIWorker.
-func New(redisClient *redis.Client, llmRegistry *sllmigo.Registry) *GenAIWorker {
+func New(redisClient *redis.Client, llmRegistry *sllmi.Registry) *GenAIWorker {
 	return &GenAIWorker{
 		workerID:    fmt.Sprintf("GenAIWorker-%d", os.Getpid()),
 		redisClient: redisClient,
@@ -91,7 +91,7 @@ func (w *GenAIWorker) processNextTask(ctx context.Context) {
 	}
 }
 
-func (w *GenAIWorker) process(ctx context.Context, task *models.GenerationTask, model sllmigo.LLM) error {
+func (w *GenAIWorker) process(ctx context.Context, task *models.GenerationTask, model sllmi.LLM) error {
 	result, err := model.Generate(ctx, task.Prompt, task.Config)
 	if err != nil {
 		return err
@@ -99,7 +99,7 @@ func (w *GenAIWorker) process(ctx context.Context, task *models.GenerationTask, 
 	return w.redisClient.Publish(ctx, task.TaskID, result).Err()
 }
 
-func (w *GenAIWorker) processStream(ctx context.Context, task *models.GenerationTask, model sllmigo.LLM) error {
+func (w *GenAIWorker) processStream(ctx context.Context, task *models.GenerationTask, model sllmi.LLM) error {
 	outCh, errCh := model.GenerateStream(ctx, task.Prompt, task.Config)
 
 	for {

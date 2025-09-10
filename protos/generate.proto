@@ -9,7 +9,7 @@ service Generate {
 message GenerationConfig {
   optional float temperature = 1;
   optional float top_p = 2;
-  optional int32 top_k = 3;
+  optional float top_k = 3;
   optional int32 output_length = 4;
 }
 

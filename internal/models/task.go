@@ -1,6 +1,7 @@
+No such line 13 in input file, ignoring
 package models
 
-import "sllmi-go"
+import "github.com/sokinpui/sllmi-go"
 
 // GenerationTask represents a task to be processed by a worker.
 type GenerationTask struct {
@@ -8,5 +9,5 @@ type GenerationTask struct {
 	Prompt    string          `json:"prompt"`
 	ModelCode string          `json:"model_code"`
 	Stream    bool            `json:"stream"`
-	Config    *sllmigo.Config `json:"config,omitempty"`
+	Config    *sllmi.Config   `json:"config,omitempty"`
 }
