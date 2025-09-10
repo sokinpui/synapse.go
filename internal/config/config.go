@@ -3,6 +3,7 @@ package config
 import (
 	"log"
 
+	"github.com/joho/godotenv"
 	"github.com/kelseyhightower/envconfig"
 )
 
@@ -17,6 +18,12 @@ type Settings struct {
 
 // Load reads configuration from environment variables.
 func Load() *Settings {
+	// Attempt to load .env file. This is useful for local development.
+	// In production, environment variables are usually set directly.
+	if err := godotenv.Load(); err != nil {
+		log.Printf("Warning: Could not load .env file: %v", err)
+	}
+
 	var s Settings
 	err := envconfig.Process("synapse", &s)
 	if err != nil {
