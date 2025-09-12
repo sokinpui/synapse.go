@@ -6,8 +6,8 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/joho/godotenv v1.5.1
 	github.com/kelseyhightower/envconfig v1.4.0
-	github.com/redis/go-redis/v9 v9.13.0
-	github.com/sokinpui/sllmi-go v1.0.1
+	github.com/redis/go-redis/v9 v9.14.0
+	github.com/sokinpui/sllmi-go v1.0.2
 	google.golang.org/grpc v1.75.1
 	google.golang.org/protobuf v1.36.9
 )
