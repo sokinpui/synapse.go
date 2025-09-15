@@ -53,10 +53,8 @@ github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZb
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/redis/go-redis/v9 v9.14.0 h1:u4tNCjXOyzfgeLN+vAZaW1xUooqWDqVEsZN0U01jfAE=
 github.com/redis/go-redis/v9 v9.14.0/go.mod h1:huWgSWd8mW6+m0VPhJjSSQ+d6Nh1VICQ6Q5lHuCH/Iw=
-github.com/sokinpui/sllmi-go v1.0.1 h1:boaHBmmMAAbmlGkTVA3mOY9tSqpfJbSKCtaMsvYJoBs=
-github.com/sokinpui/sllmi-go v1.0.1/go.mod h1:H5Gh1rWs3fswKgHur5/bpQ6AoRjYBcyDmcE8bNjHLdQ=
-github.com/sokinpui/sllmi-go v1.0.2 h1:CnlXAPoczQ0DOfMY3XzIrDRGDy51g+7l+7tchIkFpZ8=
-github.com/sokinpui/sllmi-go v1.0.2/go.mod h1:H5Gh1rWs3fswKgHur5/bpQ6AoRjYBcyDmcE8bNjHLdQ=
+github.com/sokinpui/sllmi-go v1.0.3 h1:mXQg55IbcpV0W5NnwXxkSji/5EzeZMLr7H8EvcIQkh4=
+github.com/sokinpui/sllmi-go v1.0.3/go.mod h1:H5Gh1rWs3fswKgHur5/bpQ6AoRjYBcyDmcE8bNjHLdQ=
 github.com/stretchr/testify v1.10.0 h1:Xv5erBjTwe/5IxqUQTdXv5kgmIvbHo3QQyRwhJsOfJA=
 github.com/stretchr/testify v1.10.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf8C91i36aY=
 go.opentelemetry.io/auto/sdk v1.1.0 h1:cH53jehLUN6UFLY71z+NDOiNJqDdPRaXzTel0sJySYA=
