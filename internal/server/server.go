@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"log"
 	"strings"
 
@@ -38,6 +39,8 @@ func (s *Server) GenerateTask(req *pb.Request, stream pb.Generate_GenerateTaskSe
 	defer log.Printf("<- Finished request for task_id: %s", taskID)
 
 	ctx := stream.Context()
+	go s.handleCancellation(ctx, taskID)
+
 	resultChannel := taskID
 
 	pubsub := s.redisClient.Subscribe(ctx, resultChannel)
@@ -57,6 +60,17 @@ func (s *Server) GenerateTask(req *pb.Request, stream pb.Generate_GenerateTaskSe
 	}
 
 	return s.streamResults(req, stream, pubsub.Channel())
+}
+
+func (s *Server) handleCancellation(ctx context.Context, taskID string) {
+	<-ctx.Done()
+	log.Printf("Client cancelled request for task %s. Publishing cancellation.", taskID)
+
+	// Use a background context for publishing as the request context is already done.
+	err := s.redisClient.Publish(context.Background(), cancellationChannel(taskID), "cancel").Err()
+	if err != nil {
+		log.Printf("Error publishing cancellation for task %s: %v", taskID, err)
+	}
 }
 
 func (s *Server) createTask(taskID string, req *pb.Request) *models.GenerationTask {
@@ -107,4 +121,8 @@ func (s *Server) streamResults(req *pb.Request, stream pb.Generate_GenerateTaskS
 	}
 
 	return nil
+}
+
+func cancellationChannel(taskID string) string {
+	return "cancel:" + taskID
 }

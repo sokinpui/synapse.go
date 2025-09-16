@@ -81,10 +81,15 @@ func (w *GenAIWorker) processTask(ctx context.Context, task *models.GenerationTa
 	log.Printf("-> Processing task: %s", task.TaskID)
 	defer log.Printf("<- Finished task: %s", task.TaskID)
 
+	taskCtx, cancelTask := context.WithCancel(ctx)
+	defer cancelTask()
+
+	go w.listenForCancellation(taskCtx, task.TaskID, cancelTask)
+
 	resultChannel := task.TaskID
 
 	defer func() {
-		if err := w.redisClient.Publish(ctx, resultChannel, sentinel).Err(); err != nil {
+		if err := w.redisClient.Publish(context.Background(), resultChannel, sentinel).Err(); err != nil {
 			log.Printf("Failed to publish sentinel for task %s: %v", task.TaskID, err)
 		}
 	}()
@@ -93,14 +98,14 @@ func (w *GenAIWorker) processTask(ctx context.Context, task *models.GenerationTa
 	if err != nil {
 		log.Printf("Error getting model for task %s: %v", task.TaskID, err)
 		errMsg := fmt.Sprintf("Error: %v", err)
-		w.redisClient.Publish(ctx, resultChannel, errMsg)
+		w.redisClient.Publish(context.Background(), resultChannel, errMsg)
 		return
 	}
 
 	if task.Stream {
-		err = w.processStream(ctx, task, model)
+		err = w.processStream(taskCtx, task, model)
 	} else {
-		err = w.process(ctx, task, model)
+		err = w.process(taskCtx, task, model)
 	}
 
 	if err != nil {
@@ -110,7 +115,23 @@ func (w *GenAIWorker) processTask(ctx context.Context, task *models.GenerationTa
 		}
 		log.Printf("Error processing generation task %s: %v", task.TaskID, err)
 		errMsg := fmt.Sprintf("Error: %v", err)
-		w.redisClient.Publish(ctx, resultChannel, errMsg)
+		w.redisClient.Publish(context.Background(), resultChannel, errMsg)
+	}
+}
+
+func (w *GenAIWorker) listenForCancellation(ctx context.Context, taskID string, cancel context.CancelFunc) {
+	pubsub := w.redisClient.Subscribe(ctx, cancellationChannel(taskID))
+	defer pubsub.Close()
+
+	msg, err := pubsub.ReceiveMessage(ctx)
+	if err != nil {
+		// This is expected if the context is canceled (e.g., task completes normally).
+		return
+	}
+
+	if msg != nil {
+		log.Printf("Cancellation signal received for task %s. Canceling.", taskID)
+		cancel()
 	}
 }
 
@@ -140,4 +161,8 @@ func (w *GenAIWorker) processStream(ctx context.Context, task *models.Generation
 			return ctx.Err()
 		}
 	}
+}
+
+func cancellationChannel(taskID string) string {
+	return "cancel:" + taskID
 }
