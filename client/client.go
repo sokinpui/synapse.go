@@ -14,7 +14,7 @@ import (
 type GenerationConfig struct {
 	Temperature  *float32
 	TopP         *float32
-	TopK         *int32
+	TopK         *float32
 	OutputLength *int32
 }
 
