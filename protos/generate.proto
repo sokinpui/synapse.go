@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package protos;
 
-option go_package = "synapse/grpc";
+option go_package = "github.com/sokinpui/synapse.go/grpc";
 
 service Generate {
   rpc GenerateTask(Request) returns (stream Response) {}

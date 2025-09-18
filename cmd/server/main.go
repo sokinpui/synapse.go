@@ -7,9 +7,9 @@ import (
 
 	"github.com/redis/go-redis/v9"
 	"google.golang.org/grpc"
-	pb "synapse/grpc"
-	"synapse/internal/config"
-	"synapse/internal/server"
+	pb "github.com/sokinpui/synapse.go/grpc"
+	"github.com/sokinpui/synapse.go/internal/config"
+	"github.com/sokinpui/synapse.go/internal/server"
 )
 
 func main() {

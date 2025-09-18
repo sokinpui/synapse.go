@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
-	"synapse/internal/models"
+	"github.com/sokinpui/synapse.go/internal/models"
 )
 
 // RQueue provides an interface to a Redis list-based queue.

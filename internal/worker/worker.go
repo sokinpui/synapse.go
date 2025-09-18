@@ -7,9 +7,9 @@ import (
 	"os"
 
 	"github.com/redis/go-redis/v9"
-	"synapse/internal/models"
-	"synapse/internal/queue"
 	"github.com/sokinpui/sllmi-go"
+	"github.com/sokinpui/synapse.go/internal/models"
+	"github.com/sokinpui/synapse.go/internal/queue"
 )
 
 const sentinel = "[DONE]"

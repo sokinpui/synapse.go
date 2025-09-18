@@ -10,9 +10,9 @@ import (
 	"github.com/sokinpui/sllmi-go"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	pb "synapse/grpc"
-	"synapse/internal/models"
-	"synapse/internal/queue"
+	pb "github.com/sokinpui/synapse.go/grpc"
+	"github.com/sokinpui/synapse.go/internal/models"
+	"github.com/sokinpui/synapse.go/internal/queue"
 )
 
 const sentinel = "[DONE]"

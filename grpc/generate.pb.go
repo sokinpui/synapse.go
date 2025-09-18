@@ -225,7 +225,7 @@ const file_generate_proto_rawDesc = "" +
 	"\bResponse\x12#\n" +
 	"\routput_string\x18\x01 \x01(\tR\foutputString2A\n" +
 	"\bGenerate\x125\n" +
-	"\fGenerateTask\x12\x0f.protos.Request\x1a\x10.protos.Response\"\x000\x01B\x0eZ\fsynapse/grpcb\x06proto3"
+	"\fGenerateTask\x12\x0f.protos.Request\x1a\x10.protos.Response\"\x000\x01B%Z#github.com/sokinpui/synapse.go/grpcb\x06proto3"
 
 var (
 	file_generate_proto_rawDescOnce sync.Once

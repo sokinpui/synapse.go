@@ -9,9 +9,9 @@ import (
 	"syscall"
 
 	"github.com/redis/go-redis/v9"
-	"synapse/internal/config"
-	"synapse/internal/worker"
 	"github.com/sokinpui/sllmi-go"
+	"github.com/sokinpui/synapse.go/internal/config"
+	"github.com/sokinpui/synapse.go/internal/worker"
 )
 
 func main() {
