@@ -1,46 +1,36 @@
-#!/bin/zsh
+#!/bin/bash
 
-# if $1 is not a number exit
+num_workers=${1:-1}
 
-arg="$1"
-
-if [ -n "$arg" ] && [ "$arg" -eq "$arg" ] 2>/dev/null; then
-else
-  echo "Exiting..."
-  echo "number of workers should be integer"
-  exit 0
+if ! [[ "$num_workers" =~ ^[1-9][0-9]*$ ]]; then
+  echo "Exiting: Number of workers must be a positive integer." >&2
+  exit 1
 fi
-
-if [ "$arg" -ne "$arg" ]; then
-fi
-
-if [ -z $1 ]; then
-  echo "1 worker starting..."
-else
-  echo "$1 workers starting.."
-fi
-
 
 set -e
 
-export http_proxy=http://127.0.0.1:1087;export https_proxy=http://127.0.0.1:1087;export ALL_PROXY=socks5://127.0.0.1:1080
+export http_proxy=http://127.0.0.1:1087
+export https_proxy=http://127.0.0.1:1087
+export ALL_PROXY=socks5://127.0.0.1:1080
 
-./bin/server &
-worker_pids+=($!)
-for i in {1.."$arg"}; do
-  ./bin/worker &
-  worker_pids+=($!)
+echo "Starting server..."
+$PWD/bin/server &
+
+echo "Starting $num_workers worker(s)..."
+for i in $(seq 1 "$num_workers"); do
+  $PWD/bin/worker &
 done
 
 cleanup() {
-  echo "Cleaning up worker processes..."
-  for pid in "${worker_pids[@]}"; do
-    kill "$pid"
-  done
+  echo
+  echo "Cleaning up all child processes..."
+  pkill -f "$PWD/bin/server"
+  pkill -f "$PWD/bin/worker"
+  echo "Cleanup complete."
 }
 
+trap cleanup INT TERM EXIT
 
-trap cleanup EXIT
+echo "Server and workers are running. Press Ctrl+C to stop everything."
 
-echo "All workers started. Press Ctrl+C to stop the script and kill all workers."
 wait
