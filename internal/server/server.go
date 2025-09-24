@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 	"github.com/sokinpui/sllmi-go/v2"
+	"github.com/sokinpui/synapse.go/v2/internal/color"
 	pb "github.com/sokinpui/synapse.go/v2/grpc"
 	"github.com/sokinpui/synapse.go/v2/internal/models"
 	"github.com/sokinpui/synapse.go/v2/internal/queue"
@@ -32,12 +33,12 @@ func New(redisClient *redis.Client) *Server {
 
 func (s *Server) GenerateTask(req *pb.Request, stream pb.Generate_GenerateTaskServer) error {
 	taskID := uuid.New().String()
-	log.Printf("-> Received request, assigned task_id: %s", taskID)
+	log.Printf("-> %s, assigned task_id: %s", color.BlueString("Received request"), taskID)
 
 	doneChan := make(chan struct{})
 	defer close(doneChan)
 
-	defer log.Printf("<- Finished request for task_id: %s", taskID)
+	defer log.Printf("<- %s for task_id: %s", color.GreenString("Finished request"), taskID)
 
 	ctx := stream.Context()
 	go s.handleCancellation(ctx, taskID, doneChan)

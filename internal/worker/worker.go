@@ -8,6 +8,7 @@ import (
 
 	"github.com/redis/go-redis/v9"
 	"github.com/sokinpui/sllmi-go/v2"
+	"github.com/sokinpui/synapse.go/v2/internal/color"
 	"github.com/sokinpui/synapse.go/v2/internal/models"
 	"github.com/sokinpui/synapse.go/v2/internal/queue"
 )
@@ -76,8 +77,8 @@ func (w *GenAIWorker) Run(ctx context.Context) {
 }
 
 func (w *GenAIWorker) processTask(ctx context.Context, task *models.GenerationTask) {
-	log.Printf("-> Processing task: %s", task.TaskID)
-	defer log.Printf("<- Finished task: %s", task.TaskID)
+	log.Printf("-> %s task: %s", color.YellowString("Processing"), task.TaskID)
+	defer log.Printf("<- %s task: %s", color.GreenString("Finished"), task.TaskID)
 
 	taskCtx, cancelTask := context.WithCancel(ctx)
 	defer cancelTask()
