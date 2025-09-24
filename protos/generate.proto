@@ -20,6 +20,7 @@ message Request {
   string model_code = 2;
   bool stream = 3;
   optional GenerationConfig config = 4;
+  repeated string images = 5;
 }
 
 message Response {

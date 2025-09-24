@@ -95,6 +95,7 @@ type Request struct {
 	ModelCode     string                 `protobuf:"bytes,2,opt,name=model_code,json=modelCode,proto3" json:"model_code,omitempty"`
 	Stream        bool                   `protobuf:"varint,3,opt,name=stream,proto3" json:"stream,omitempty"`
 	Config        *GenerationConfig      `protobuf:"bytes,4,opt,name=config,proto3,oneof" json:"config,omitempty"`
+	Images        []string               `protobuf:"bytes,5,rep,name=images,proto3" json:"images,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -157,6 +158,13 @@ func (x *Request) GetConfig() *GenerationConfig {
 	return nil
 }
 
+func (x *Request) GetImages() []string {
+	if x != nil {
+		return x.Images
+	}
+	return nil
+}
+
 type Response struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	OutputString  string                 `protobuf:"bytes,1,opt,name=output_string,json=outputString,proto3" json:"output_string,omitempty"`
@@ -214,13 +222,14 @@ const file_generate_proto_rawDesc = "" +
 	"\f_temperatureB\b\n" +
 	"\x06_top_pB\b\n" +
 	"\x06_top_kB\x10\n" +
-	"\x0e_output_length\"\x9a\x01\n" +
+	"\x0e_output_length\"\xb2\x01\n" +
 	"\aRequest\x12\x16\n" +
 	"\x06prompt\x18\x01 \x01(\tR\x06prompt\x12\x1d\n" +
 	"\n" +
 	"model_code\x18\x02 \x01(\tR\tmodelCode\x12\x16\n" +
 	"\x06stream\x18\x03 \x01(\bR\x06stream\x125\n" +
-	"\x06config\x18\x04 \x01(\v2\x18.protos.GenerationConfigH\x00R\x06config\x88\x01\x01B\t\n" +
+	"\x06config\x18\x04 \x01(\v2\x18.protos.GenerationConfigH\x00R\x06config\x88\x01\x01\x12\x16\n" +
+	"\x06images\x18\x05 \x03(\tR\x06imagesB\t\n" +
 	"\a_config\"/\n" +
 	"\bResponse\x12#\n" +
 	"\routput_string\x18\x01 \x01(\tR\foutputString2A\n" +

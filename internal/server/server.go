@@ -7,7 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
-	"github.com/sokinpui/sllmi-go"
+	"github.com/sokinpui/sllmi-go/v2"
 	pb "github.com/sokinpui/synapse.go/grpc"
 	"github.com/sokinpui/synapse.go/internal/models"
 	"github.com/sokinpui/synapse.go/internal/queue"
@@ -98,6 +98,7 @@ func (s *Server) createTask(taskID string, req *pb.Request) *models.GenerationTa
 		ModelCode: req.ModelCode,
 		Stream:    req.Stream,
 		Config:    cfg,
+		Images:    req.Images,
 	}
 }
 

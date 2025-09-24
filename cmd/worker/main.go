@@ -9,7 +9,7 @@ import (
 	"syscall"
 
 	"github.com/redis/go-redis/v9"
-	"github.com/sokinpui/sllmi-go"
+	"github.com/sokinpui/sllmi-go/v2"
 	"github.com/sokinpui/synapse.go/internal/config"
 	"github.com/sokinpui/synapse.go/internal/worker"
 )
