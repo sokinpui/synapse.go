@@ -22,7 +22,7 @@ type GenerateRequest struct {
 	ModelCode string
 	Stream    bool
 	Config    *GenerationConfig
-	Images    []string
+	ImgPaths  []string
 }
 
 type Result struct {
@@ -65,7 +65,7 @@ func (c *grpcClient) GenerateTask(ctx context.Context, req *GenerateRequest) (<-
 		Prompt:    req.Prompt,
 		ModelCode: req.ModelCode,
 		Stream:    req.Stream,
-		Images:    req.Images,
+		ImgPaths:  req.ImgPaths,
 	}
 
 	if req.Config != nil {

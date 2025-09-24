@@ -8,5 +8,5 @@ type GenerationTask struct {
 	ModelCode string        `json:"model_code"`
 	Stream    bool          `json:"stream"`
 	Config    *sllmi.Config `json:"config,omitempty"`
-	Images    []string      `json:"images,omitempty"`
+	ImgPaths  []string      `json:"img_paths,omitempty"`
 }

@@ -134,7 +134,7 @@ func (w *GenAIWorker) listenForCancellation(ctx context.Context, taskID string, 
 }
 
 func (w *GenAIWorker) process(ctx context.Context, task *models.GenerationTask, model sllmi.LLM) error {
-	result, err := model.Generate(ctx, task.Prompt, task.Images, task.Config)
+	result, err := model.Generate(ctx, task.Prompt, task.ImgPaths, task.Config)
 	if err != nil {
 		return err
 	}
@@ -142,7 +142,7 @@ func (w *GenAIWorker) process(ctx context.Context, task *models.GenerationTask, 
 }
 
 func (w *GenAIWorker) processStream(ctx context.Context, task *models.GenerationTask, model sllmi.LLM) error {
-	outCh, errCh := model.GenerateStream(ctx, task.Prompt, task.Images, task.Config)
+	outCh, errCh := model.GenerateStream(ctx, task.Prompt, task.ImgPaths, task.Config)
 
 	for {
 		select {
