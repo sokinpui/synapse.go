@@ -13,6 +13,8 @@ import (
 )
 
 func main() {
+	log.SetPrefix("server: ")
+
 	cfg := config.Load()
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.GRPCPort))

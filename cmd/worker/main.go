@@ -15,6 +15,8 @@ import (
 )
 
 func main() {
+	log.SetPrefix("worker: ")
+
 	cfg := config.Load()
 
 	redisClient := redis.NewClient(&redis.Options{
