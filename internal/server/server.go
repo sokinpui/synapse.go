@@ -8,23 +8,21 @@ import (
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 	"github.com/sokinpui/sllmi-go"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	pb "github.com/sokinpui/synapse.go/grpc"
 	"github.com/sokinpui/synapse.go/internal/models"
 	"github.com/sokinpui/synapse.go/internal/queue"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 const sentinel = "[DONE]"
 
-// Server implements the gRPC Generate service.
 type Server struct {
 	pb.UnimplementedGenerateServer
 	redisClient *redis.Client
 	queue       *queue.RQueue
 }
 
-// New creates a new gRPC server.
 func New(redisClient *redis.Client) *Server {
 	return &Server{
 		redisClient: redisClient,
@@ -32,14 +30,17 @@ func New(redisClient *redis.Client) *Server {
 	}
 }
 
-// GenerateTask handles a generation request.
 func (s *Server) GenerateTask(req *pb.Request, stream pb.Generate_GenerateTaskServer) error {
 	taskID := uuid.New().String()
 	log.Printf("-> Received request, assigned task_id: %s", taskID)
+
+	doneChan := make(chan struct{})
+	defer close(doneChan)
+
 	defer log.Printf("<- Finished request for task_id: %s", taskID)
 
 	ctx := stream.Context()
-	go s.handleCancellation(ctx, taskID)
+	go s.handleCancellation(ctx, taskID, doneChan)
 
 	resultChannel := taskID
 
@@ -62,14 +63,19 @@ func (s *Server) GenerateTask(req *pb.Request, stream pb.Generate_GenerateTaskSe
 	return s.streamResults(req, stream, pubsub.Channel())
 }
 
-func (s *Server) handleCancellation(ctx context.Context, taskID string) {
-	<-ctx.Done()
-	log.Printf("Client cancelled request for task %s. Publishing cancellation.", taskID)
+func (s *Server) handleCancellation(ctx context.Context, taskID string, doneChan <-chan struct{}) {
+	select {
+	case <-doneChan:
+		return
+	case <-ctx.Done():
+		// The client's context was cancelled before the task completed.
+		log.Printf("Client cancelled request for task %s. Publishing cancellation.", taskID)
 
-	// Use a background context for publishing as the request context is already done.
-	err := s.redisClient.Publish(context.Background(), cancellationChannel(taskID), "cancel").Err()
-	if err != nil {
-		log.Printf("Error publishing cancellation for task %s: %v", taskID, err)
+		// Use a background context for publishing as the request context is already done.
+		err := s.redisClient.Publish(context.Background(), cancellationChannel(taskID), "cancel").Err()
+		if err != nil {
+			log.Printf("Error publishing cancellation for task %s: %v", taskID, err)
+		}
 	}
 }
 

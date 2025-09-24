@@ -22,7 +22,6 @@ type GenAIWorker struct {
 	llmRegistry *sllmi.Registry
 }
 
-// New creates a new GenAIWorker.
 func New(redisClient *redis.Client, llmRegistry *sllmi.Registry) *GenAIWorker {
 	return &GenAIWorker{
 		workerID:    fmt.Sprintf("GenAIWorker-%d", os.Getpid()),
@@ -32,7 +31,6 @@ func New(redisClient *redis.Client, llmRegistry *sllmi.Registry) *GenAIWorker {
 	}
 }
 
-// Run starts the worker's main loop.
 func (w *GenAIWorker) Run(ctx context.Context) {
 	log.Printf("%s started. Waiting for tasks...", w.workerID)
 

@@ -10,7 +10,6 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-// GenerationConfig mirrors the protobuf message for convenience.
 type GenerationConfig struct {
 	Temperature  *float32
 	TopP         *float32
@@ -18,7 +17,6 @@ type GenerationConfig struct {
 	OutputLength *int32
 }
 
-// GenerateRequest holds parameters for a generation request.
 type GenerateRequest struct {
 	Prompt    string
 	ModelCode string
@@ -26,31 +24,22 @@ type GenerateRequest struct {
 	Config    *GenerationConfig
 }
 
-// Result holds either a text chunk from the stream or an error.
 type Result struct {
 	Text string
 	Err  error
 }
 
-// Client is an interface for interacting with the Synapse generation service.
 type Client interface {
-	// GenerateTask sends a prompt for generation and returns a channel for streaming results.
-	// If an error occurs during the stream, it will be sent on the channel.
-	// The channel is closed once the stream is complete.
-	// An error is returned if the initial request fails.
 	GenerateTask(ctx context.Context, req *GenerateRequest) (<-chan Result, error)
 
-	// Close closes the connection to the server.
 	Close() error
 }
 
-// grpcClient is the gRPC implementation of the Client interface.
 type grpcClient struct {
 	conn   *grpc.ClientConn
 	client pb.GenerateClient
 }
 
-// New creates a new Synapse client connected to the given address.
 func New(addr string) (Client, error) {
 	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -63,7 +52,6 @@ func New(addr string) (Client, error) {
 	}, nil
 }
 
-// Close closes the gRPC connection.
 func (c *grpcClient) Close() error {
 	if c.conn == nil {
 		return nil
@@ -71,7 +59,6 @@ func (c *grpcClient) Close() error {
 	return c.conn.Close()
 }
 
-// GenerateTask implements the Client interface.
 func (c *grpcClient) GenerateTask(ctx context.Context, req *GenerateRequest) (<-chan Result, error) {
 	pbReq := &pb.Request{
 		Prompt:    req.Prompt,

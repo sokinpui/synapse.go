@@ -7,7 +7,6 @@ import (
 	"github.com/kelseyhightower/envconfig"
 )
 
-// Settings holds the application configuration.
 type Settings struct {
 	RedisHost     string `envconfig:"SYNAPSE_REDIS_HOST" default:"localhost"`
 	RedisPort     int    `envconfig:"SYNAPSE_REDIS_PORT" default:"6379"`
@@ -18,8 +17,7 @@ type Settings struct {
 
 // Load reads configuration from environment variables.
 func Load() *Settings {
-	// Attempt to load .env file. This is useful for local development.
-	// In production, environment variables are usually set directly.
+	// Attempt to load .env file.
 	if err := godotenv.Load(); err != nil {
 		log.Printf("Warning: Could not load .env file: %v", err)
 	}

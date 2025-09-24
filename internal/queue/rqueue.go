@@ -9,13 +9,11 @@ import (
 	"github.com/sokinpui/synapse.go/internal/models"
 )
 
-// RQueue provides an interface to a Redis list-based queue.
 type RQueue struct {
 	redisClient *redis.Client
 	name        string
 }
 
-// New creates a new RQueue.
 func New(redisClient *redis.Client, name string) *RQueue {
 	return &RQueue{
 		redisClient: redisClient,
@@ -23,7 +21,6 @@ func New(redisClient *redis.Client, name string) *RQueue {
 	}
 }
 
-// Enqueue adds a task to the queue.
 func (q *RQueue) Enqueue(ctx context.Context, task *models.GenerationTask) error {
 	item, err := json.Marshal(task)
 	if err != nil {
@@ -32,7 +29,6 @@ func (q *RQueue) Enqueue(ctx context.Context, task *models.GenerationTask) error
 	return q.redisClient.LPush(ctx, q.name, item).Err()
 }
 
-// Dequeue removes and returns a task from the queue, blocking until one is available.
 func (q *RQueue) Dequeue(ctx context.Context, timeout time.Duration) (*models.GenerationTask, error) {
 	data, err := q.redisClient.BRPop(ctx, timeout, q.name).Result()
 	if err != nil {
