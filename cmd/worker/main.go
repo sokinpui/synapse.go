@@ -10,8 +10,8 @@ import (
 
 	"github.com/redis/go-redis/v9"
 	"github.com/sokinpui/sllmi-go/v2"
-	"github.com/sokinpui/synapse.go/internal/config"
-	"github.com/sokinpui/synapse.go/internal/worker"
+	"github.com/sokinpui/synapse.go/v2/internal/config"
+	"github.com/sokinpui/synapse.go/v2/internal/worker"
 )
 
 func main() {

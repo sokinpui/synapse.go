@@ -8,9 +8,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 	"github.com/sokinpui/sllmi-go/v2"
-	pb "github.com/sokinpui/synapse.go/grpc"
-	"github.com/sokinpui/synapse.go/internal/models"
-	"github.com/sokinpui/synapse.go/internal/queue"
+	pb "github.com/sokinpui/synapse.go/v2/grpc"
+	"github.com/sokinpui/synapse.go/v2/internal/models"
+	"github.com/sokinpui/synapse.go/v2/internal/queue"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )

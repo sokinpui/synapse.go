@@ -6,10 +6,10 @@ import (
 	"net"
 
 	"github.com/redis/go-redis/v9"
+	pb "github.com/sokinpui/synapse.go/v2/grpc"
+	"github.com/sokinpui/synapse.go/v2/internal/config"
+	"github.com/sokinpui/synapse.go/v2/internal/server"
 	"google.golang.org/grpc"
-	pb "github.com/sokinpui/synapse.go/grpc"
-	"github.com/sokinpui/synapse.go/internal/config"
-	"github.com/sokinpui/synapse.go/internal/server"
 )
 
 func main() {

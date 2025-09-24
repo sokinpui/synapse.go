@@ -4,7 +4,7 @@ import (
 	"context"
 	"io"
 
-	pb "github.com/sokinpui/synapse.go/grpc"
+	pb "github.com/sokinpui/synapse.go/v2/grpc"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
