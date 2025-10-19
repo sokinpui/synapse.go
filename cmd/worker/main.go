@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"runtime"
 	"os"
 	"os/signal"
 	"syscall"
@@ -42,6 +43,7 @@ func main() {
 		cancel()
 	}()
 
-	w := worker.New(redisClient, llmRegistry)
+	concurrency := cfg.WorkerConcurrencyMultiplier * runtime.NumCPU()
+	w := worker.New(redisClient, llmRegistry, concurrency)
 	w.Run(ctx)
 }

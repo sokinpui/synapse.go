@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"sync"
 
 	"github.com/redis/go-redis/v9"
 	"github.com/sokinpui/sllmi-go/v2"
@@ -21,19 +22,21 @@ type GenAIWorker struct {
 	redisClient *redis.Client
 	queue       *queue.RQueue
 	llmRegistry *sllmi.Registry
+	concurrency int
 }
 
-func New(redisClient *redis.Client, llmRegistry *sllmi.Registry) *GenAIWorker {
+func New(redisClient *redis.Client, llmRegistry *sllmi.Registry, concurrency int) *GenAIWorker {
 	return &GenAIWorker{
 		workerID:    fmt.Sprintf("GenAIWorker-%d", os.Getpid()),
 		redisClient: redisClient,
 		queue:       queue.New(redisClient, "request_queue"),
 		llmRegistry: llmRegistry,
+		concurrency: concurrency,
 	}
 }
 
 func (w *GenAIWorker) Run(ctx context.Context) {
-	log.Printf("%s started. Waiting for tasks...", w.workerID)
+	log.Printf("%s started. Waiting for tasks... (concurrency: %d)", w.workerID, w.concurrency)
 
 	taskCh := make(chan *models.GenerationTask)
 
@@ -61,19 +64,27 @@ func (w *GenAIWorker) Run(ctx context.Context) {
 		}
 	}()
 
-	for {
-		select {
-		case task, ok := <-taskCh:
-			if !ok {
-				log.Printf("%s dequeue channel closed, shutting down.", w.workerID)
-				return
+	var wg sync.WaitGroup
+	for i := 0; i < w.concurrency; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for {
+				select {
+				case task, ok := <-taskCh:
+					if !ok {
+						return
+					}
+					w.processTask(ctx, task)
+				case <-ctx.Done():
+					return
+				}
 			}
-			go w.processTask(ctx, task)
-		case <-ctx.Done():
-			log.Printf("%s shutting down.", w.workerID)
-			return
-		}
+		}()
 	}
+
+	wg.Wait()
+	log.Printf("%s all workers stopped.", w.workerID)
 }
 
 func (w *GenAIWorker) processTask(ctx context.Context, task *models.GenerationTask) {

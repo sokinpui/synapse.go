@@ -13,6 +13,7 @@ type Settings struct {
 	RedisDB       int    `envconfig:"SYNAPSE_REDIS_DB" default:"0"`
 	RedisPassword string `envconfig:"SYNAPSE_REDIS_PASSWORD" default:""`
 	GRPCPort      int    `envconfig:"SYNAPSE_GRPC_PORT" default:"50051"`
+	WorkerConcurrencyMultiplier int `envconfig:"SYNAPSE_WORKER_CONCURRENCY_MULTIPLIER" default:"4"`
 }
 
 // Load reads configuration from environment variables.
