@@ -6,8 +6,7 @@ Simple distributed task queue system implement in gRPC and Redis
 
 The system consists of two main components: a `server` and a `worker`.
 
-```
-Client ---gRPC---> Server ---LPUSH---> Redis Queue ---BRPOP---> Worker
+```Client ---gRPC---> Server ---LPUSH---> Redis Queue ---BRPOP---> Worker
                                ^                                  |
                                |                                  |
                                +----SUBSCRIBE---- Redis Pub/Sub <-+PUBLISH
@@ -41,17 +40,33 @@ SYNAPSE_GRPC_PORT=50051
 GENAI_API_KEY="YOUR_GEMINI_API_KEY"
 ```
 
-### 2. Build with Makefile
+### 2. Start Redis
+
+A `docker-compose.yml` file is provided to easily run a Redis instance.
+
+```sh
+docker-compose up -d
+```
+
+### 3. Build
 
 Generate gRPC stubs and build server/worker binaries
 
 ```sh
-make build
+./build.sh
 ```
 
 Binaries will be placed in the `./bin` directory.
 
-### 3. Run
+### 4. Run
+
+A convenience script `start.sh` is provided to run both the server and the worker.
+
+```sh
+./start.sh
+```
+
+Alternatively, you can run them in separate terminals:
 
 1.  **Start the Worker**:
     ```sh
@@ -64,6 +79,50 @@ Binaries will be placed in the `./bin` directory.
 
 The server will listen for gRPC requests on the port specified by `SYNAPSE_GRPC_PORT`.
 
+## Client Usage
+
+A Go client is available in the `./client` directory. Here's a simple example of how to use it:
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"log"
+
+	"github.com/sokinpui/synapse.go/v2/client"
+)
+
+func main() {
+	c, err := client.New("localhost:50051")
+	if err != nil {
+		log.Fatalf("Failed to create client: %v", err)
+	}
+	defer c.Close()
+
+	req := &client.GenerateRequest{
+		Prompt:    "Tell me a joke",
+		ModelCode: "gemini-pro",
+		Stream:    true,
+	}
+
+	resultChan, err := c.GenerateTask(context.Background(), req)
+	if err != nil {
+		log.Fatalf("Failed to generate task: %v", err)
+	}
+
+	for result := range resultChan {
+		if result.Err != nil {
+			log.Printf("Error during generation: %v", result.Err)
+			break
+		}
+		fmt.Print(result.Text)
+	}
+	fmt.Println()
+}
+```
+
 ## Project Structure
 
 ```
@@ -71,6 +130,8 @@ The server will listen for gRPC requests on the port specified by `SYNAPSE_GRPC_
 ├── cmd/                # Entrypoints
 │   ├── server/main.go
 │   └── worker/main.go
+├── client/             # Go client library
+│   └── client.go
 ├── internal/           # Internal application logic
 │   ├── config/
 │   ├── models/
@@ -80,7 +141,8 @@ The server will listen for gRPC requests on the port specified by `SYNAPSE_GRPC_
 ├── protos/             # Protobuf definitions
 │   └── generate.proto
 ├── grpc/               # Generated gRPC code
+├── docker-compose.yml  # Docker compose for Redis
 ├── go.mod
-├── Makefile
-└── gen.sh              # Protobuf generation script
+├── build.sh            # Build script
+└── start.sh            # Start script for server & worker
 ```
