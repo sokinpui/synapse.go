@@ -17,13 +17,15 @@ Client ---gRPC---> Server ---LPUSH---> Redis Queue ---BRPOP---> Worker
 
 - Go (1.21+)
 - Protobuf Compiler (`protoc`)
-- An running Redis instance.
+- Docker and Docker Compose (for Redis)
 
-## Setup & Usage
+## Getting Started
 
 ### 1. Configuration
 
 The application is configured using environment variables. Create a `.env` file in the root directory or export the variables directly.
+
+> **Note:** You can copy the provided `.env.example` to `.env` to get started quickly.
 
 ```dotenv
 # Redis Configuration
