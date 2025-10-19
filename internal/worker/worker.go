@@ -68,7 +68,7 @@ func (w *GenAIWorker) Run(ctx context.Context) {
 				log.Printf("%s dequeue channel closed, shutting down.", w.workerID)
 				return
 			}
-			w.processTask(ctx, task)
+			go w.processTask(ctx, task)
 		case <-ctx.Done():
 			log.Printf("%s shutting down.", w.workerID)
 			return
