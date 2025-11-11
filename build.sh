@@ -1,5 +1,7 @@
 #!/bin/bash
 
+go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+
 echo "Generating gRPC code..."
 mkdir -p grpc
 protoc --proto_path=protos \
