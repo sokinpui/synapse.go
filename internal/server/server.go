@@ -99,7 +99,7 @@ func (s *Server) createTask(taskID string, req *pb.Request) *models.GenerationTa
 		ModelCode: req.ModelCode,
 		Stream:    req.Stream,
 		Config:    cfg,
-		ImgPaths:  req.ImgPaths,
+		Images:    req.Images,
 	}
 }
 
