@@ -2,7 +2,10 @@ package client
 
 import (
 	"context"
+	"crypto/tls"
+	"google.golang.org/grpc/credentials"
 	"io"
+	"strings"
 
 	pb "github.com/sokinpui/synapse.go/v2/grpc"
 
@@ -42,7 +45,22 @@ type grpcClient struct {
 }
 
 func New(addr string) (Client, error) {
-	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	var opts []grpc.DialOption
+
+	// Check if the address ends in :443 (standard SSL port)
+	if strings.HasSuffix(addr, ":443") {
+		// Create TLS credentials
+		creds := credentials.NewTLS(&tls.Config{
+			// In production, you might want to load system roots,
+			// but typically empty Config{} uses system defaults which works for Let's Encrypt.
+		})
+		opts = append(opts, grpc.WithTransportCredentials(creds))
+	} else {
+		// Fallback to insecure for localhost/dev
+		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	}
+
+	conn, err := grpc.Dial(addr, opts...)
 	if err != nil {
 		return nil, err
 	}
