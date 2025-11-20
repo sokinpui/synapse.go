@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package protos;
+package synapse;
 
 option go_package = "github.com/sokinpui/synapse.go/v2/grpc";
 
