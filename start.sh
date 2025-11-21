@@ -1,6 +1,14 @@
 #!/bin/bash
 
+echo "Building Synapse Server..."
+./build.sh
+echo "Build complete."
+
+echo "Starting Redis..."
+
 docker compose up -d
+
+echo "Redis started."
 
 set -e
 
