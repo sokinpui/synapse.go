@@ -7,11 +7,11 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
-	"github.com/sokinpui/sllmi-go/v2"
-	"github.com/sokinpui/synapse.go/v2/internal/color"
 	pb "github.com/sokinpui/synapse.go/v2/grpc"
+	"github.com/sokinpui/synapse.go/v2/internal/color"
 	"github.com/sokinpui/synapse.go/v2/internal/models"
 	"github.com/sokinpui/synapse.go/v2/internal/queue"
+	"github.com/sokinpui/synapse.go/v2/model"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -81,9 +81,9 @@ func (s *Server) handleCancellation(ctx context.Context, taskID string, doneChan
 }
 
 func (s *Server) createTask(taskID string, req *pb.Request) *models.GenerationTask {
-	var cfg *sllmi.Config
+	var cfg *model.Config
 	if req.Config != nil {
-		cfg = &sllmi.Config{
+		cfg = &model.Config{
 			Temperature: req.Config.Temperature,
 			TopP:        req.Config.TopP,
 			TopK:        req.Config.TopK,

@@ -10,9 +10,9 @@ import (
 	"syscall"
 
 	"github.com/redis/go-redis/v9"
-	"github.com/sokinpui/sllmi-go/v2"
 	"github.com/sokinpui/synapse.go/v2/internal/config"
 	"github.com/sokinpui/synapse.go/v2/internal/worker"
+	"github.com/sokinpui/synapse.go/v2/model"
 )
 
 func main() {
@@ -26,7 +26,7 @@ func main() {
 		DB:       cfg.RedisDB,
 	})
 
-	llmRegistry, err := sllmi.New()
+	llmRegistry, err := model.New()
 	if err != nil {
 		log.Fatalf("Failed to initialize LLM registry: %v", err)
 	}

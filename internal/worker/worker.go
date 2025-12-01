@@ -8,10 +8,10 @@ import (
 	"sync"
 
 	"github.com/redis/go-redis/v9"
-	"github.com/sokinpui/sllmi-go/v2"
 	"github.com/sokinpui/synapse.go/v2/internal/color"
 	"github.com/sokinpui/synapse.go/v2/internal/models"
 	"github.com/sokinpui/synapse.go/v2/internal/queue"
+	"github.com/sokinpui/synapse.go/v2/model"
 )
 
 const sentinel = "[DONE]"
@@ -21,11 +21,11 @@ type GenAIWorker struct {
 	workerID    string
 	redisClient *redis.Client
 	queue       *queue.RQueue
-	llmRegistry *sllmi.Registry
+	llmRegistry *model.Registry
 	concurrency int
 }
 
-func New(redisClient *redis.Client, llmRegistry *sllmi.Registry, concurrency int) *GenAIWorker {
+func New(redisClient *redis.Client, llmRegistry *model.Registry, concurrency int) *GenAIWorker {
 	return &GenAIWorker{
 		workerID:    fmt.Sprintf("GenAIWorker-%d", os.Getpid()),
 		redisClient: redisClient,
@@ -145,7 +145,7 @@ func (w *GenAIWorker) listenForCancellation(ctx context.Context, taskID string, 
 	}
 }
 
-func (w *GenAIWorker) process(ctx context.Context, task *models.GenerationTask, model sllmi.LLM) error {
+func (w *GenAIWorker) process(ctx context.Context, task *models.GenerationTask, model model.LLM) error {
 	result, err := model.Generate(ctx, task.Prompt, task.Images, task.Config)
 	if err != nil {
 		return err
@@ -153,7 +153,7 @@ func (w *GenAIWorker) process(ctx context.Context, task *models.GenerationTask, 
 	return w.redisClient.Publish(ctx, task.TaskID, result).Err()
 }
 
-func (w *GenAIWorker) processStream(ctx context.Context, task *models.GenerationTask, model sllmi.LLM) error {
+func (w *GenAIWorker) processStream(ctx context.Context, task *models.GenerationTask, model model.LLM) error {
 	outCh, errCh := model.GenerateStream(ctx, task.Prompt, task.Images, task.Config)
 
 	for {
