@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"log"
+	"time"
 	"strings"
 
 	"github.com/google/uuid"
@@ -64,6 +65,25 @@ func (s *Server) GenerateTask(req *pb.Request, stream pb.Generate_GenerateTaskSe
 		return status.Errorf(codes.Internal, "failed to subscribe to result channel")
 	}
 
+	keepAliveCtx, cancelKeepAlive := context.WithCancel(ctx)
+	defer cancelKeepAlive()
+
+	go func() {
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				if err := stream.Send(&pb.Response{Type: pb.Response_KEEPALIVE}); err != nil {
+					log.Printf("Error sending keep-alive for task %s: %v", taskID, err)
+					return
+				}
+			case <-keepAliveCtx.Done():
+				return
+			}
+		}
+	}()
+
 	task := s.createTask(taskID, req)
 
 	if err := s.queue.Enqueue(ctx, task); err != nil {
@@ -71,7 +91,7 @@ func (s *Server) GenerateTask(req *pb.Request, stream pb.Generate_GenerateTaskSe
 		return status.Errorf(codes.Internal, "failed to enqueue task")
 	}
 
-	return s.streamResults(req, stream, pubsub.Channel())
+	return s.streamResults(req, stream, pubsub.Channel(), cancelKeepAlive)
 }
 
 func (s *Server) handleCancellation(ctx context.Context, taskID string, doneChan <-chan struct{}) {
@@ -113,17 +133,23 @@ func (s *Server) createTask(taskID string, req *pb.Request) *models.GenerationTa
 	}
 }
 
-func (s *Server) streamResults(req *pb.Request, stream pb.Generate_GenerateTaskServer, ch <-chan *redis.Message) error {
+func (s *Server) streamResults(req *pb.Request, stream pb.Generate_GenerateTaskServer, ch <-chan *redis.Message, cancelKeepAlive context.CancelFunc) error {
 	var outputParts []string
+	firstMessageReceived := false
 
 	for msg := range ch {
+		if !firstMessageReceived {
+			cancelKeepAlive() // Stop sending keep-alives
+			firstMessageReceived = true
+		}
+
 		data := msg.Payload
 		if data == sentinel {
 			break
 		}
 
 		if req.Stream {
-			if err := stream.Send(&pb.Response{OutputString: data}); err != nil {
+			if err := stream.Send(&pb.Response{Type: pb.Response_CHUNK, Chunk: data}); err != nil {
 				return err
 			}
 		} else {
@@ -133,7 +159,7 @@ func (s *Server) streamResults(req *pb.Request, stream pb.Generate_GenerateTaskS
 
 	if !req.Stream {
 		fullOutput := strings.Join(outputParts, "")
-		if err := stream.Send(&pb.Response{OutputString: fullOutput}); err != nil {
+		if err := stream.Send(&pb.Response{Type: pb.Response_CHUNK, Chunk: fullOutput}); err != nil {
 			return err
 		}
 	}

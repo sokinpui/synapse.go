@@ -29,8 +29,9 @@ type GenerateRequest struct {
 }
 
 type Result struct {
-	Text string
-	Err  error
+	Text        string
+	Err         error
+	IsKeepAlive bool
 }
 
 type Client interface {
@@ -114,7 +115,13 @@ func (c *grpcClient) GenerateTask(ctx context.Context, req *GenerateRequest) (<-
 				resultChan <- Result{Err: err}
 				return
 			}
-			resultChan <- Result{Text: resp.GetOutputString()}
+			switch resp.GetType() {
+			case pb.Response_CHUNK:
+				resultChan <- Result{Text: resp.GetChunk()}
+			case pb.Response_KEEPALIVE:
+				// Propagate keep-alive signal to the client application.
+				resultChan <- Result{IsKeepAlive: true}
+			}
 		}
 	}()
 

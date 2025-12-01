@@ -25,7 +25,12 @@ message Request {
 }
 
 message Response {
-  string output_string = 1;
+  enum Type {
+    CHUNK = 0;
+    KEEPALIVE = 1;
+  }
+  Type type = 1;
+  string chunk = 2;
 }
 
 message ListModelsRequest {}
