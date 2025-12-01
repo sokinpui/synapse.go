@@ -22,22 +22,38 @@ The system consists of two main components: a `server` and a `worker`.
 
 ### 1. Configuration
 
-The application is configured using environment variables. Create a `.env` file in the root directory or export the variables directly.
+The application is configured using a `config.yaml` file. API keys for the LLM providers are still configured using environment variables.
 
-> **Note:** You can copy the provided `.env.example` to `.env` to get started quickly.
+Create a `config.yaml` file in the root directory with the following content:
 
-```dotenv
-# Redis Configuration
-SYNAPSE_REDIS_HOST=localhost
-SYNAPSE_REDIS_PORT=6379
-SYNAPSE_REDIS_DB=0
-SYNAPSE_REDIS_PASSWORD=""
+```yaml
+server:
+  grpc_port: 50051
 
-# gRPC Server Port
-SYNAPSE_GRPC_PORT=50051
+redis:
+  host: localhost
+  port: 6666 # Default port in docker-compose.yml
+  db: 0
+  password: "root" # Default password in docker-compose.yml
+
+worker:
+  concurrency_multiplier: 4
+
+models:
+  gemini:
+    codes:
+      - "gemini-2.5-pro"
+  openrouter:
+    codes:
+      - "z-ai/glm-4.5-air:free"
+```
 
 # API key for the underlying LLM provider
-GENAI_API_KEY="YOUR_GEMINI_API_KEY"
+Then, export the necessary API keys:
+
+```sh
+export GENAI_API_KEYS="YOUR_GEMINI_API_KEY_1,YOUR_GEMINI_API_KEY_2"
+export OPENROUTER_API_KEY="YOUR_OPENROUTER_API_KEY"
 ```
 
 ### 2. Start Redis

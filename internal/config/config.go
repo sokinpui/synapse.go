@@ -2,31 +2,47 @@ package config
 
 import (
 	"log"
+	"os"
 
-	"github.com/joho/godotenv"
-	"github.com/kelseyhightower/envconfig"
+	"gopkg.in/yaml.v3"
 )
 
-type Settings struct {
-	RedisHost     string `envconfig:"SYNAPSE_REDIS_HOST" default:"localhost"`
-	RedisPort     int    `envconfig:"SYNAPSE_REDIS_PORT" default:"6379"`
-	RedisDB       int    `envconfig:"SYNAPSE_REDIS_DB" default:"0"`
-	RedisPassword string `envconfig:"SYNAPSE_REDIS_PASSWORD" default:""`
-	GRPCPort      int    `envconfig:"SYNAPSE_GRPC_PORT" default:"50051"`
-	WorkerConcurrencyMultiplier int `envconfig:"SYNAPSE_WORKER_CONCURRENCY_MULTIPLIER" default:"4"`
+type Config struct {
+	Server struct {
+		GRPCPort int `yaml:"grpc_port"`
+	} `yaml:"server"`
+	Redis struct {
+		Host     string `yaml:"host"`
+		Port     int    `yaml:"port"`
+		DB       int    `yaml:"db"`
+		Password string `yaml:"password"`
+	} `yaml:"redis"`
+	Worker struct {
+		ConcurrencyMultiplier int `yaml:"concurrency_multiplier"`
+	} `yaml:"worker"`
+	Models struct {
+		Gemini     ProviderConfig `yaml:"gemini"`
+		OpenRouter ProviderConfig `yaml:"openrouter"`
+	} `yaml:"models"`
 }
 
-// Load reads configuration from environment variables.
-func Load() *Settings {
-	// Attempt to load .env file.
-	if err := godotenv.Load(); err != nil {
-		log.Printf("Warning: Could not load .env file: %v", err)
+type ProviderConfig struct {
+	Codes []string `yaml:"codes"`
+}
+
+// Load reads configuration from the YAML file.
+func Load() *Config {
+	path := "config.yaml"
+	data, err := os.ReadFile(path)
+	if err != nil {
+		log.Fatalf("failed to read config file at %s: %v. Make sure it exists.", path, err)
 	}
 
-	var s Settings
-	err := envconfig.Process("synapse", &s)
+	var cfg Config
+	err = yaml.Unmarshal(data, &cfg)
 	if err != nil {
-		log.Fatalf("Failed to load configuration: %v", err)
+		log.Fatalf("failed to unmarshal config: %v", err)
 	}
-	return &s
+
+	return &cfg
 }

@@ -1,0 +1,36 @@
+server:
+  grpc_port: 50051
+
+redis:
+  host: localhost
+  port: 6666
+  db: 0
+  password: "root"
+
+worker:
+  # Multiple of CPU cores to use for processing requests
+  concurrency_multiplier: 4
+
+models:
+  gemini:
+    codes:
+      - "gemini-2.5-pro"
+      - "gemini-2.5-flash-preview-09-2025"
+      - "gemini-2.5-flash"
+      - "gemini-2.5-flash-lite-preview-09-2025"
+      - "gemini-2.5-flash-lite"
+      - "gemini-2.0-flash"
+      - "gemini-2.0-flash-lite"
+      - "gemma-3-27b-it"
+  openrouter:
+    codes:
+      - "z-ai/glm-4.5-air:free"
+      - "qwen/qwen3-coder:free"
+      - "tngtech/deepseek-r1t2-chimera:free"
+      - "x-ai/grok-4.1-fast:free"
+      - "kwaipilot/kat-coder-pro:free"
+      - "deepseek/deepseek-r1-0528:free"
+      - "tngtech/deepseek-r1t-chimera:free"
+      - "microsoft/mai-ds-r1:free"
+      - "deepseek/deepseek-chat-v3-0324:free"
+      - "deepseek/deepseek-r1:free"

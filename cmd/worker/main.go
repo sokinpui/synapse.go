@@ -21,12 +21,12 @@ func main() {
 	cfg := config.Load()
 
 	redisClient := redis.NewClient(&redis.Options{
-		Addr:     fmt.Sprintf("%s:%d", cfg.RedisHost, cfg.RedisPort),
-		Password: cfg.RedisPassword,
-		DB:       cfg.RedisDB,
+		Addr:     fmt.Sprintf("%s:%d", cfg.Redis.Host, cfg.Redis.Port),
+		Password: cfg.Redis.Password,
+		DB:       cfg.Redis.DB,
 	})
 
-	llmRegistry, err := model.New()
+	llmRegistry, err := model.New(cfg)
 	if err != nil {
 		log.Fatalf("Failed to initialize LLM registry: %v", err)
 	}
@@ -43,7 +43,7 @@ func main() {
 		cancel()
 	}()
 
-	concurrency := cfg.WorkerConcurrencyMultiplier * runtime.NumCPU()
+	concurrency := cfg.Worker.ConcurrencyMultiplier * runtime.NumCPU()
 	w := worker.New(redisClient, llmRegistry, concurrency)
 	w.Run(ctx)
 }

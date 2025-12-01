@@ -18,18 +18,18 @@ func main() {
 
 	cfg := config.Load()
 
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.GRPCPort))
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.Server.GRPCPort))
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
 
 	redisClient := redis.NewClient(&redis.Options{
-		Addr:     fmt.Sprintf("%s:%d", cfg.RedisHost, cfg.RedisPort),
-		Password: cfg.RedisPassword,
-		DB:       cfg.RedisDB,
+		Addr:     fmt.Sprintf("%s:%d", cfg.Redis.Host, cfg.Redis.Port),
+		Password: cfg.Redis.Password,
+		DB:       cfg.Redis.DB,
 	})
 
-	llmRegistry, err := model.New()
+	llmRegistry, err := model.New(cfg)
 	if err != nil {
 		log.Printf("Warning: Failed to initialize LLM registry: %v", err)
 	}

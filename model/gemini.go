@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sokinpui/synapse.go/v2/internal/config"
 	"google.golang.org/genai"
 	"google.golang.org/genai/tokenizer"
 )
@@ -16,7 +17,7 @@ func init() {
 	RegisterProvider(newGeminiProvider)
 }
 
-func newGeminiProvider() (map[string]LLM, error) {
+func newGeminiProvider(cfg *config.Config) (map[string]LLM, error) {
 	apiKeysVar := os.Getenv("GENAI_API_KEYS")
 	var apiKeys []string
 	if apiKeysVar != "" {
@@ -27,21 +28,10 @@ func newGeminiProvider() (map[string]LLM, error) {
 		}
 	}
 
-	modelCodes := []string{
-		"gemini-2.5-pro",
-		"gemini-2.5-flash-preview-09-2025",
-		"gemini-2.5-flash",
-		"gemini-2.5-flash-lite-preview-09-2025",
-		"gemini-2.5-flash-lite",
-		"gemini-2.0-flash",
-		"gemini-2.0-flash-lite",
-		"gemma-3-27b-it",
-	}
-
 	models := make(map[string]LLM)
 	ctx := context.Background()
 
-	for _, code := range modelCodes {
+	for _, code := range cfg.Models.Gemini.Codes {
 		model, err := NewGeminiModel(ctx, code, apiKeys)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create Gemini model '%s': %w", code, err)

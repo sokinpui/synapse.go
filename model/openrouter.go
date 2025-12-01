@@ -7,32 +7,20 @@ import (
 	"os"
 
 	openrouter "github.com/revrost/go-openrouter"
+	"github.com/sokinpui/synapse.go/v2/internal/config"
 )
 
 func init() {
 	RegisterProvider(newOpenRouterProvider)
 }
 
-func newOpenRouterProvider() (map[string]LLM, error) {
+func newOpenRouterProvider(cfg *config.Config) (map[string]LLM, error) {
 	apiKey := os.Getenv("OPENROUTER_API_KEY")
-
-	modelCodes := []string{
-		"z-ai/glm-4.5-air:free",
-		"qwen/qwen3-coder:free",
-		"tngtech/deepseek-r1t2-chimera:free",
-		"x-ai/grok-4.1-fast:free",
-		"kwaipilot/kat-coder-pro:free",
-		"deepseek/deepseek-r1-0528:free",
-		"tngtech/deepseek-r1t-chimera:free",
-		"microsoft/mai-ds-r1:free",
-		"deepseek/deepseek-chat-v3-0324:free",
-		"deepseek/deepseek-r1:free",
-	}
 
 	models := make(map[string]LLM)
 	ctx := context.Background()
 
-	for _, code := range modelCodes {
+	for _, code := range cfg.Models.OpenRouter.Codes {
 		model, err := NewOpenRouterModel(ctx, code, apiKey)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create Gemini model '%s': %w", code, err)

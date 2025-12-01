@@ -3,6 +3,8 @@ package model
 import (
 	"context"
 	"fmt"
+
+	"github.com/sokinpui/synapse.go/v2/internal/config"
 )
 
 type LLM interface {
@@ -11,7 +13,7 @@ type LLM interface {
 	CountTokens(prompt string) (int, error)
 }
 
-type ModelProvider func() (map[string]LLM, error)
+type ModelProvider func(cfg *config.Config) (map[string]LLM, error)
 
 var providers []ModelProvider
 
@@ -23,10 +25,10 @@ type Registry struct {
 	models map[string]LLM
 }
 
-func New() (*Registry, error) {
+func New(cfg *config.Config) (*Registry, error) {
 	allModels := make(map[string]LLM)
 	for _, provider := range providers {
-		providerModels, err := provider()
+		providerModels, err := provider(cfg)
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize a model provider: %w", err)
 		}
