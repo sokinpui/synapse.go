@@ -122,27 +122,3 @@ func main() {
 	fmt.Println()
 }
 ```
-
-## Project Structure
-
-```
-.
-├── cmd/                # Entrypoints
-│   ├── server/main.go
-│   └── worker/main.go
-├── client/             # Go client library
-│   └── client.go
-├── internal/           # Internal application logic
-│   ├── config/
-│   ├── models/
-│   ├── queue/
-│   ├── server/
-│   └── worker/
-├── protos/             # Protobuf definitions
-│   └── generate.proto
-├── grpc/               # Generated gRPC code
-├── docker-compose.yml  # Docker compose for Redis
-├── go.mod
-├── build.sh            # Build script
-└── start.sh            # Start script for server & worker
-```
