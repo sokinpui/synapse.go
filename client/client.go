@@ -35,6 +35,7 @@ type Result struct {
 
 type Client interface {
 	GenerateTask(ctx context.Context, req *GenerateRequest) (<-chan Result, error)
+	ListModels(ctx context.Context) ([]string, error)
 
 	Close() error
 }
@@ -118,4 +119,12 @@ func (c *grpcClient) GenerateTask(ctx context.Context, req *GenerateRequest) (<-
 	}()
 
 	return resultChan, nil
+}
+
+func (c *grpcClient) ListModels(ctx context.Context) ([]string, error) {
+	resp, err := c.client.ListModels(ctx, &pb.ListModelsRequest{})
+	if err != nil {
+		return nil, err
+	}
+	return resp.Models, nil
 }

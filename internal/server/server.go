@@ -22,13 +22,23 @@ type Server struct {
 	pb.UnimplementedGenerateServer
 	redisClient *redis.Client
 	queue       *queue.RQueue
+	llmRegistry *model.Registry
 }
 
-func New(redisClient *redis.Client) *Server {
+func New(redisClient *redis.Client, llmRegistry *model.Registry) *Server {
 	return &Server{
 		redisClient: redisClient,
 		queue:       queue.New(redisClient, "request_queue"),
+		llmRegistry: llmRegistry,
 	}
+}
+
+func (s *Server) ListModels(ctx context.Context, req *pb.ListModelsRequest) (*pb.ListModelsResponse, error) {
+	if s.llmRegistry == nil {
+		return nil, status.Error(codes.Internal, "LLM registry not initialized on server")
+	}
+	models := s.llmRegistry.ListModels()
+	return &pb.ListModelsResponse{Models: models}, nil
 }
 
 func (s *Server) GenerateTask(req *pb.Request, stream pb.Generate_GenerateTaskServer) error {

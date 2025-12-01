@@ -9,6 +9,7 @@ import (
 	pb "github.com/sokinpui/synapse.go/v2/grpc"
 	"github.com/sokinpui/synapse.go/v2/internal/config"
 	"github.com/sokinpui/synapse.go/v2/internal/server"
+	"github.com/sokinpui/synapse.go/v2/model"
 	"google.golang.org/grpc"
 )
 
@@ -28,8 +29,13 @@ func main() {
 		DB:       cfg.RedisDB,
 	})
 
+	llmRegistry, err := model.New()
+	if err != nil {
+		log.Printf("Warning: Failed to initialize LLM registry: %v", err)
+	}
+
 	s := grpc.NewServer()
-	pb.RegisterGenerateServer(s, server.New(redisClient))
+	pb.RegisterGenerateServer(s, server.New(redisClient, llmRegistry))
 
 	log.Printf("Server listening at %v", lis.Addr())
 	if err := s.Serve(lis); err != nil {

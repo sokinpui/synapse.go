@@ -6,6 +6,7 @@ option go_package = "github.com/sokinpui/synapse.go/v2/grpc";
 
 service Generate {
   rpc GenerateTask(Request) returns (stream Response) {}
+  rpc ListModels(ListModelsRequest) returns (ListModelsResponse) {}
 }
 
 message GenerationConfig {
@@ -25,4 +26,10 @@ message Request {
 
 message Response {
   string output_string = 1;
+}
+
+message ListModelsRequest {}
+
+message ListModelsResponse {
+  repeated string models = 1;
 }
