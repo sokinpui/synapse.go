@@ -36,7 +36,7 @@ SYNAPSE_REDIS_PASSWORD=""
 # gRPC Server Port
 SYNAPSE_GRPC_PORT=50051
 
-# API key for the underlying LLM provider (sllmi-go)
+# API key for the underlying LLM provider
 GENAI_API_KEY="YOUR_GEMINI_API_KEY"
 ```
 
