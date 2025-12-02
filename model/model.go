@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/sokinpui/synapse.go/v2/internal/config"
+	"github.com/sokinpui/synapse.go/internal/config"
 )
 
 type LLM interface {

@@ -1,6 +1,6 @@
 package models
 
-import "github.com/sokinpui/synapse.go/v2/model"
+import "github.com/sokinpui/synapse.go/model"
 
 type GenerationTask struct {
 	TaskID    string        `json:"task_id"`

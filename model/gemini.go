@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sokinpui/synapse.go/v2/internal/config"
+	"github.com/sokinpui/synapse.go/internal/config"
 	"google.golang.org/genai"
 	"google.golang.org/genai/tokenizer"
 )

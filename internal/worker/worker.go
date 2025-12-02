@@ -8,10 +8,10 @@ import (
 	"sync"
 
 	"github.com/redis/go-redis/v9"
-	"github.com/sokinpui/synapse.go/v2/internal/color"
-	"github.com/sokinpui/synapse.go/v2/internal/models"
-	"github.com/sokinpui/synapse.go/v2/internal/queue"
-	"github.com/sokinpui/synapse.go/v2/model"
+	"github.com/sokinpui/synapse.go/internal/color"
+	"github.com/sokinpui/synapse.go/internal/models"
+	"github.com/sokinpui/synapse.go/internal/queue"
+	"github.com/sokinpui/synapse.go/model"
 )
 
 const sentinel = "[DONE]"

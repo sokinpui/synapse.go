@@ -7,7 +7,7 @@ import (
 	"os"
 
 	openrouter "github.com/revrost/go-openrouter"
-	"github.com/sokinpui/synapse.go/v2/internal/config"
+	"github.com/sokinpui/synapse.go/internal/config"
 )
 
 func init() {

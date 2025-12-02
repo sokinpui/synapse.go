@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
-	"github.com/sokinpui/synapse.go/v2/internal/models"
+	"github.com/sokinpui/synapse.go/internal/models"
 )
 
 type RQueue struct {

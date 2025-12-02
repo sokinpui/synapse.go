@@ -3,16 +3,16 @@ package server
 import (
 	"context"
 	"log"
-	"time"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
-	pb "github.com/sokinpui/synapse.go/v2/grpc"
-	"github.com/sokinpui/synapse.go/v2/internal/color"
-	"github.com/sokinpui/synapse.go/v2/internal/models"
-	"github.com/sokinpui/synapse.go/v2/internal/queue"
-	"github.com/sokinpui/synapse.go/v2/model"
+	pb "github.com/sokinpui/synapse.go/grpc"
+	"github.com/sokinpui/synapse.go/internal/color"
+	"github.com/sokinpui/synapse.go/internal/models"
+	"github.com/sokinpui/synapse.go/internal/queue"
+	"github.com/sokinpui/synapse.go/model"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )

@@ -4,15 +4,15 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"runtime"
 	"os"
 	"os/signal"
+	"runtime"
 	"syscall"
 
 	"github.com/redis/go-redis/v9"
-	"github.com/sokinpui/synapse.go/v2/internal/config"
-	"github.com/sokinpui/synapse.go/v2/internal/worker"
-	"github.com/sokinpui/synapse.go/v2/model"
+	"github.com/sokinpui/synapse.go/internal/config"
+	"github.com/sokinpui/synapse.go/internal/worker"
+	"github.com/sokinpui/synapse.go/model"
 )
 
 func main() {

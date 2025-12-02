@@ -377,7 +377,7 @@ const file_generate_proto_rawDesc = "" +
 	"\bGenerate\x127\n" +
 	"\fGenerateTask\x12\x10.synapse.Request\x1a\x11.synapse.Response\"\x000\x01\x12G\n" +
 	"\n" +
-	"ListModels\x12\x1a.synapse.ListModelsRequest\x1a\x1b.synapse.ListModelsResponse\"\x00B(Z&github.com/sokinpui/synapse.go/v2/grpcb\x06proto3"
+	"ListModels\x12\x1a.synapse.ListModelsRequest\x1a\x1b.synapse.ListModelsResponse\"\x00B%Z#github.com/sokinpui/synapse.go/grpcb\x06proto3"
 
 var (
 	file_generate_proto_rawDescOnce sync.Once
