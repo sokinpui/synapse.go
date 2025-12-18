@@ -185,23 +185,28 @@ func (m *GeminiModel) CountTokens(prompt string) (int, error) {
 	return int(ntoks.TotalTokens), nil
 }
 
-func getGenConfig(config *Config) *genai.GenerateContentConfig {
+func (m *GeminiModel) getGenConfig(config *Config) *genai.GenerateContentConfig {
 	if config == nil {
 		return &genai.GenerateContentConfig{}
 	}
 
-	var tools = []*genai.Tool{
-		{
-			GoogleSearch: &genai.GoogleSearch{},
-			URLContext:   &genai.URLContext{},
-		},
-	}
+	// var tools = []*genai.Tool{
+	// 	{
+	// 		GoogleSearch: &genai.GoogleSearch{},
+	// 		URLContext:   &genai.URLContext{},
+	// 	},
+	// }
+
+	// disable tools if code is gemini-3-flash-preview
+	// if m.model == "gemini-3-flash-preview" {
+	// 	tools = nil
+	// }
 
 	return &genai.GenerateContentConfig{
 		Temperature:     config.Temperature,
 		TopP:            config.TopP,
 		TopK:            config.TopK,
 		MaxOutputTokens: config.OutputLength,
-		Tools:           tools,
+		// Tools:           tools,
 	}
 }
