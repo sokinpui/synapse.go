@@ -6,7 +6,7 @@ echo "Build complete."
 
 echo "Starting Redis..."
 
-docker compose up -d
+sudo docker compose up -d
 
 echo "Redis started."
 
