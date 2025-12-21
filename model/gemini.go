@@ -185,7 +185,7 @@ func (m *GeminiModel) CountTokens(prompt string) (int, error) {
 	return int(ntoks.TotalTokens), nil
 }
 
-func (m *GeminiModel) getGenConfig(config *Config) *genai.GenerateContentConfig {
+func getGenConfig(config *Config) *genai.GenerateContentConfig {
 	if config == nil {
 		return &genai.GenerateContentConfig{}
 	}
