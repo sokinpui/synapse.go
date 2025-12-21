@@ -12,9 +12,10 @@ echo "Redis started."
 
 set -e
 
-export http_proxy=http://127.0.0.1:1087
-export https_proxy=http://127.0.0.1:1087
-export ALL_PROXY=socks5://127.0.0.1:1080
+# for local deploy, use vpn proxy
+# export http_proxy=http://127.0.0.1:1087
+# export https_proxy=http://127.0.0.1:1087
+# export ALL_PROXY=socks5://127.0.0.1:1080
 
 echo "Starting server..."
 $PWD/bin/server &
