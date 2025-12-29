@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"os"
 	"os/signal"
 	"runtime"
 	"syscall"
@@ -39,16 +38,21 @@ func main() {
 	concurrency := cfg.Worker.ConcurrencyMultiplier * runtime.NumCPU()
 	w := worker.New(memBroker, llmRegistry, concurrency)
 
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
 
 	s := grpc.NewServer()
 	pb.RegisterGenerateServer(s, server.New(memBroker, llmRegistry))
 
-	go w.Run(context.Background())
+	go w.Run(ctx)
 
 	log.Printf("Server listening at %v", lis.Addr())
-	if err := s.Serve(lis); err != nil {
+	go func() {
+		<-ctx.Done()
+		s.GracefulStop()
+	}()
+
+	if err := s.Serve(lis); err != nil && err != grpc.ErrServerStopped {
 		log.Fatalf("failed to serve: %v", err)
 	}
 }
