@@ -1,28 +1,23 @@
 # Synapse
 
-Simple distributed task queue system implement in gRPC and Redis
+Simple distributed task queue system implement in gRPC and Go Channels
 
 ## Architecture
 
-The system consists of two main components: a `server` and a `worker`.
+The system consists of two main components: a `server` and a `worker` running within the same process.
 
-```Client ---gRPC---> Server ---LPUSH---> Redis Queue ---BRPOP---> Worker
-                               ^                                  |
-                               |                                  |
-                               +----SUBSCRIBE---- Redis Pub/Sub <-+PUBLISH
-```
+```Client ---gRPC---> Server <---Go Channels---> Worker```
 
 ## Prerequisites
 
-- Go (1.21+)
+- Go (1.24+)
 - Protobuf Compiler (`protoc`)
-- Docker and Docker Compose (for Redis)
 
 ## Getting Started
 
 ### 1. Configuration
 
-The application is configured using a `config.yaml` file. API keys for the LLM providers are still configured using environment variables.
+The application is configured using a `config.yaml` file. API keys for the LLM providers are configured using environment variables.
 
 Create a `config.yaml` file in the root directory with the following content:
 
@@ -30,13 +25,8 @@ Create a `config.yaml` file in the root directory with the following content:
 server:
   grpc_port: 50051
 
-redis:
-  host: localhost
-  port: 6666 # Default port in docker-compose.yml
-  db: 0
-  password: "root" # Default password in docker-compose.yml
-
 worker:
+  # Multiple of CPU cores to use for processing requests
   concurrency_multiplier: 4
 
 models:
@@ -56,44 +46,25 @@ export GENAI_API_KEYS="YOUR_GEMINI_API_KEY_1,YOUR_GEMINI_API_KEY_2"
 export OPENROUTER_API_KEY="YOUR_OPENROUTER_API_KEY"
 ```
 
-### 2. Start Redis
+### 2. Build
 
-A `docker-compose.yml` file is provided to easily run a Redis instance.
-
-```sh
-docker-compose up -d
-```
-
-### 3. Build
-
-Generate gRPC stubs and build server/worker binaries
+Generate gRPC stubs and build the server binary:
 
 ```sh
 ./build.sh
 ```
 
-Binaries will be placed in the `./bin` directory.
+The binary will be placed in the `./bin` directory.
 
-### 4. Run
+### 3. Run
 
-A convenience script `start.sh` is provided to run both the server and the worker.
+Run the server (which internally starts the worker pool):
 
 ```sh
-./start.sh
+./bin/server
 ```
 
-Alternatively, you can run them in separate terminals:
-
-1.  **Start the Worker**:
-    ```sh
-    ./bin/worker
-    ```
-2.  **Start the Server**:
-    ```sh
-    ./bin/server
-    ```
-
-The server will listen for gRPC requests on the port specified by `SYNAPSE_GRPC_PORT`.
+The server will listen for gRPC requests on the port specified in `config.yaml`.
 
 ## Client Usage
 
@@ -119,7 +90,7 @@ func main() {
 
 	req := &client.GenerateRequest{
 		Prompt:    "Tell me a joke",
-		ModelCode: "gemini-pro",
+		ModelCode: "gemini-2.5-pro",
 		Stream:    true,
 	}
 
@@ -132,6 +103,9 @@ func main() {
 		if result.Err != nil {
 			log.Printf("Error during generation: %v", result.Err)
 			break
+		}
+		if result.IsKeepAlive {
+			continue
 		}
 		fmt.Print(result.Text)
 	}

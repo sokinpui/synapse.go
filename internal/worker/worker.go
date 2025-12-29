@@ -7,10 +7,9 @@ import (
 	"os"
 	"sync"
 
-	"github.com/redis/go-redis/v9"
+	"github.com/sokinpui/synapse.go/internal/broker"
 	"github.com/sokinpui/synapse.go/internal/color"
 	"github.com/sokinpui/synapse.go/internal/models"
-	"github.com/sokinpui/synapse.go/internal/queue"
 	"github.com/sokinpui/synapse.go/model"
 )
 
@@ -19,17 +18,15 @@ const sentinel = "[DONE]"
 // GenAIWorker dequeues and processes generation tasks.
 type GenAIWorker struct {
 	workerID    string
-	redisClient *redis.Client
-	queue       *queue.RQueue
+	broker      *broker.MemoryBroker
 	llmRegistry *model.Registry
 	concurrency int
 }
 
-func New(redisClient *redis.Client, llmRegistry *model.Registry, concurrency int) *GenAIWorker {
+func New(b *broker.MemoryBroker, llmRegistry *model.Registry, concurrency int) *GenAIWorker {
 	return &GenAIWorker{
 		workerID:    fmt.Sprintf("GenAIWorker-%d", os.Getpid()),
-		redisClient: redisClient,
-		queue:       queue.New(redisClient, "request_queue"),
+		broker:      b,
 		llmRegistry: llmRegistry,
 		concurrency: concurrency,
 	}
@@ -38,32 +35,7 @@ func New(redisClient *redis.Client, llmRegistry *model.Registry, concurrency int
 func (w *GenAIWorker) Run(ctx context.Context) {
 	log.Printf("%s started. Waiting for tasks... (concurrency: %d)", w.workerID, w.concurrency)
 
-	taskCh := make(chan *models.GenerationTask)
-
-	// Goroutine to fetch tasks from the queue
-	go func() {
-		defer close(taskCh)
-		for {
-			// Block indefinitely until a task is available or the context is canceled.
-			task, err := w.queue.Dequeue(ctx, 0)
-			if err != nil {
-				// Context cancellation will cause Dequeue to return an error,
-				// which is the expected way to stop this goroutine.
-				if err != context.Canceled {
-					log.Printf("Failed to dequeue from Redis: %v", err)
-				}
-				return
-			}
-			if task != nil {
-				select {
-				case taskCh <- task:
-				case <-ctx.Done():
-					return // Exit if context is canceled while waiting to send.
-				}
-			}
-		}
-	}()
-
+	taskCh := w.broker.Dequeue()
 	var wg sync.WaitGroup
 	for i := 0; i < w.concurrency; i++ {
 		wg.Add(1)
@@ -99,16 +71,14 @@ func (w *GenAIWorker) processTask(ctx context.Context, task *models.GenerationTa
 	resultChannel := task.TaskID
 
 	defer func() {
-		if err := w.redisClient.Publish(context.Background(), resultChannel, sentinel).Err(); err != nil {
-			log.Printf("Failed to publish sentinel for task %s: %v", task.TaskID, err)
-		}
+		w.broker.Publish(resultChannel, sentinel)
 	}()
 
 	model, err := w.llmRegistry.GetModel(task.ModelCode)
 	if err != nil {
 		log.Printf("Error getting model for task %s: %v", task.TaskID, err)
 		errMsg := fmt.Sprintf("Error: %v", err)
-		w.redisClient.Publish(context.Background(), resultChannel, errMsg)
+		w.broker.Publish(resultChannel, errMsg)
 		return
 	}
 
@@ -125,23 +95,16 @@ func (w *GenAIWorker) processTask(ctx context.Context, task *models.GenerationTa
 		}
 		log.Printf("Error processing generation task %s: %v", task.TaskID, err)
 		errMsg := fmt.Sprintf("Error: %v", err)
-		w.redisClient.Publish(context.Background(), resultChannel, errMsg)
+		w.broker.Publish(resultChannel, errMsg)
 	}
 }
 
 func (w *GenAIWorker) listenForCancellation(ctx context.Context, taskID string, cancel context.CancelFunc) {
-	pubsub := w.redisClient.Subscribe(ctx, cancellationChannel(taskID))
-	defer pubsub.Close()
-
-	msg, err := pubsub.ReceiveMessage(ctx)
-	if err != nil {
-		// This is expected if the context is canceled (e.g., task completes normally).
-		return
-	}
-
-	if msg != nil {
-		log.Printf("Cancellation signal received for task %s. Canceling.", taskID)
+	select {
+	case <-w.broker.IsCancelled(taskID):
 		cancel()
+	case <-ctx.Done():
+		return
 	}
 }
 
@@ -150,7 +113,8 @@ func (w *GenAIWorker) process(ctx context.Context, task *models.GenerationTask, 
 	if err != nil {
 		return err
 	}
-	return w.redisClient.Publish(ctx, task.TaskID, result).Err()
+	w.broker.Publish(task.TaskID, result)
+	return nil
 }
 
 func (w *GenAIWorker) processStream(ctx context.Context, task *models.GenerationTask, model model.LLM) error {
@@ -162,17 +126,11 @@ func (w *GenAIWorker) processStream(ctx context.Context, task *models.Generation
 			if !ok {
 				return nil // Stream finished
 			}
-			if err := w.redisClient.Publish(ctx, task.TaskID, chunk).Err(); err != nil {
-				log.Printf("Failed to publish chunk for task %s: %v", task.TaskID, err)
-			}
+			w.broker.Publish(task.TaskID, chunk)
 		case err := <-errCh:
 			return err
 		case <-ctx.Done():
 			return ctx.Err()
 		}
 	}
-}
-
-func cancellationChannel(taskID string) string {
-	return "cancel:" + taskID
 }

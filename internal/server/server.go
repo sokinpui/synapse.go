@@ -7,11 +7,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/redis/go-redis/v9"
 	pb "github.com/sokinpui/synapse.go/grpc"
+	"github.com/sokinpui/synapse.go/internal/broker"
 	"github.com/sokinpui/synapse.go/internal/color"
 	"github.com/sokinpui/synapse.go/internal/models"
-	"github.com/sokinpui/synapse.go/internal/queue"
 	"github.com/sokinpui/synapse.go/model"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -21,15 +20,13 @@ const sentinel = "[DONE]"
 
 type Server struct {
 	pb.UnimplementedGenerateServer
-	redisClient *redis.Client
-	queue       *queue.RQueue
+	broker      *broker.MemoryBroker
 	llmRegistry *model.Registry
 }
 
-func New(redisClient *redis.Client, llmRegistry *model.Registry) *Server {
+func New(b *broker.MemoryBroker, llmRegistry *model.Registry) *Server {
 	return &Server{
-		redisClient: redisClient,
-		queue:       queue.New(redisClient, "request_queue"),
+		broker:      b,
 		llmRegistry: llmRegistry,
 	}
 }
@@ -56,14 +53,8 @@ func (s *Server) GenerateTask(req *pb.Request, stream pb.Generate_GenerateTaskSe
 
 	resultChannel := taskID
 
-	pubsub := s.redisClient.Subscribe(ctx, resultChannel)
-	defer pubsub.Close()
-
-	_, err := pubsub.Receive(ctx)
-	if err != nil {
-		log.Printf("Error subscribing to channel for task %s: %v", taskID, err)
-		return status.Errorf(codes.Internal, "failed to subscribe to result channel")
-	}
+	resCh := s.broker.Subscribe(resultChannel)
+	defer s.broker.Unsubscribe(resultChannel)
 
 	keepAliveCtx, cancelKeepAlive := context.WithCancel(ctx)
 	defer cancelKeepAlive()
@@ -86,12 +77,9 @@ func (s *Server) GenerateTask(req *pb.Request, stream pb.Generate_GenerateTaskSe
 
 	task := s.createTask(taskID, req)
 
-	if err := s.queue.Enqueue(ctx, task); err != nil {
-		log.Printf("Error enqueuing task %s: %v", taskID, err)
-		return status.Errorf(codes.Internal, "failed to enqueue task")
-	}
+	s.broker.Enqueue(task)
 
-	return s.streamResults(req, stream, pubsub.Channel(), cancelKeepAlive)
+	return s.streamResults(req, stream, resCh, cancelKeepAlive)
 }
 
 func (s *Server) handleCancellation(ctx context.Context, taskID string, doneChan <-chan struct{}) {
@@ -99,14 +87,8 @@ func (s *Server) handleCancellation(ctx context.Context, taskID string, doneChan
 	case <-doneChan:
 		return
 	case <-ctx.Done():
-		// The client's context was cancelled before the task completed.
 		log.Printf("Client cancelled request for task %s. Publishing cancellation.", taskID)
-
-		// Use a background context for publishing as the request context is already done.
-		err := s.redisClient.Publish(context.Background(), cancellationChannel(taskID), "cancel").Err()
-		if err != nil {
-			log.Printf("Error publishing cancellation for task %s: %v", taskID, err)
-		}
+		s.broker.SignalCancel(taskID)
 	}
 }
 
@@ -133,17 +115,16 @@ func (s *Server) createTask(taskID string, req *pb.Request) *models.GenerationTa
 	}
 }
 
-func (s *Server) streamResults(req *pb.Request, stream pb.Generate_GenerateTaskServer, ch <-chan *redis.Message, cancelKeepAlive context.CancelFunc) error {
+func (s *Server) streamResults(req *pb.Request, stream pb.Generate_GenerateTaskServer, ch <-chan string, cancelKeepAlive context.CancelFunc) error {
 	var outputParts []string
 	firstMessageReceived := false
 
-	for msg := range ch {
+	for data := range ch {
 		if !firstMessageReceived {
-			cancelKeepAlive() // Stop sending keep-alives
+			cancelKeepAlive()
 			firstMessageReceived = true
 		}
 
-		data := msg.Payload
 		if data == sentinel {
 			break
 		}
@@ -165,8 +146,4 @@ func (s *Server) streamResults(req *pb.Request, stream pb.Generate_GenerateTaskS
 	}
 
 	return nil
-}
-
-func cancellationChannel(taskID string) string {
-	return "cancel:" + taskID
 }

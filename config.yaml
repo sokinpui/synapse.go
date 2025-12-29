@@ -1,12 +1,6 @@
 server:
   grpc_port: 50051
 
-redis:
-  host: localhost
-  port: 6666
-  db: 0
-  password: "root"
-
 worker:
   # Multiple of CPU cores to use for processing requests
   concurrency_multiplier: 4

@@ -11,12 +11,6 @@ type Config struct {
 	Server struct {
 		GRPCPort int `yaml:"grpc_port"`
 	} `yaml:"server"`
-	Redis struct {
-		Host     string `yaml:"host"`
-		Port     int    `yaml:"port"`
-		DB       int    `yaml:"db"`
-		Password string `yaml:"password"`
-	} `yaml:"redis"`
 	Worker struct {
 		ConcurrencyMultiplier int `yaml:"concurrency_multiplier"`
 	} `yaml:"worker"`
