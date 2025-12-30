@@ -80,7 +80,12 @@ func (s *HTTPServer) streamHTTPResults(w http.ResponseWriter, r *http.Request, c
 			if !ok || data == sentinel {
 				return
 			}
-			fmt.Fprintf(w, "data: %s\n\n", data)
+			jsonData, err := json.Marshal(map[string]string{"text": data})
+			if err != nil {
+				log.Printf("Error marshalling stream response: %v", err)
+				continue
+			}
+			fmt.Fprintf(w, "data: %s\n\n", jsonData)
 			flusher.Flush()
 		}
 	}
