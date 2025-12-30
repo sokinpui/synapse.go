@@ -4,9 +4,11 @@ Simple distributed task queue system implement in gRPC and Go Channels
 
 ## Architecture
 
-The system consists of two main components: a `server` and a `worker` running within the same process.
+The system consists of two main components: a `server` (supporting gRPC and REST/JSON) and a `worker` running within the same process.
 
-```Client ---gRPC---> Server <---Go Channels---> Worker```
+```
+Client ---gRPC/HTTP---> Server <---Go Channels---> Worker
+```
 
 ## Prerequisites
 
@@ -24,6 +26,7 @@ Create a `config.yaml` file in the root directory with the following content:
 ```yaml
 server:
   grpc_port: 50051
+  http_port: 8080
 
 worker:
   # Multiple of CPU cores to use for processing requests
@@ -39,6 +42,7 @@ models:
 ```
 
 # API key for the underlying LLM provider
+
 Then, export the necessary API keys:
 
 ```sh
@@ -111,4 +115,38 @@ func main() {
 	}
 	fmt.Println()
 }
+```
+
+## HTTP/REST API
+
+The server also exposes a REST/JSON API. You can send requests using `curl` or any HTTP client.
+
+List Models:
+
+```
+curl http://localhost:8080/models
+```
+
+**Generate (Non-Streaming):**
+
+```
+curl -X POST http://localhost:8080/generate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "Why is the sky blue?",
+    "model_code": "gemini-2.5-flash",
+    "stream": false
+  }'
+```
+
+**Generate (Streaming via SSE):**
+
+```
+curl -X POST http://localhost:8080/generate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "Write a long poem.",
+    "model_code": "gemini-2.5-flash",
+    "stream": true
+  }'
 ```

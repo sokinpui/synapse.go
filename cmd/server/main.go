@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/http"
 	"os/signal"
 	"runtime"
 	"syscall"
+	"time"
 
 	pb "github.com/sokinpui/synapse.go/grpc"
 	"github.com/sokinpui/synapse.go/internal/broker"
@@ -23,11 +25,6 @@ func main() {
 
 	cfg := config.Load()
 
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.Server.GRPCPort))
-	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
-	}
-
 	llmRegistry, err := model.New(cfg)
 	if err != nil {
 		log.Printf("Warning: Failed to initialize LLM registry: %v", err)
@@ -41,18 +38,47 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	s := grpc.NewServer()
-	pb.RegisterGenerateServer(s, server.New(memBroker, llmRegistry))
-
 	go w.Run(ctx)
 
-	log.Printf("Server listening at %v", lis.Addr())
+	// gRPC Server
+	grpcLis, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.Server.GRPCPort))
+	if err != nil {
+		log.Fatalf("failed to listen gRPC: %v", err)
+	}
+	grpcSrv := grpc.NewServer()
+	pb.RegisterGenerateServer(grpcSrv, server.New(memBroker, llmRegistry))
+
+	// HTTP Server
+	mux := http.NewServeMux()
+	httpSrv := server.NewHTTPServer(memBroker, llmRegistry)
+	httpSrv.RegisterRoutes(mux)
+	httpAddr := fmt.Sprintf(":%d", cfg.Server.HTTPPort)
+	hSrv := &http.Server{Addr: httpAddr, Handler: mux}
+
+	log.Printf("gRPC Server listening at %v", grpcLis.Addr())
+	log.Printf("HTTP Server listening at %s", httpAddr)
+
 	go func() {
-		<-ctx.Done()
-		s.GracefulStop()
+		if err := grpcSrv.Serve(grpcLis); err != nil && err != grpc.ErrServerStopped {
+			log.Printf("gRPC server error: %v", err)
+		}
 	}()
 
-	if err := s.Serve(lis); err != nil && err != grpc.ErrServerStopped {
-		log.Fatalf("failed to serve: %v", err)
+	go func() {
+		if err := hSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Printf("HTTP server error: %v", err)
+		}
+	}()
+
+	<-ctx.Done()
+	log.Println("Shutting down servers...")
+
+	grpcSrv.GracefulStop()
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), time.Duration(10*runtime.NumCPU())*time.Second)
+	defer cancel()
+
+	if err := hSrv.Shutdown(shutdownCtx); err != nil {
+		log.Printf("HTTP shutdown error: %v", err)
 	}
 }
