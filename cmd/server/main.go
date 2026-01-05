@@ -20,6 +20,8 @@ import (
 	"google.golang.org/grpc"
 )
 
+const maxMsgSize = 100 * 1024 * 1024 // 100MB
+
 func main() {
 	log.SetPrefix("server: ")
 
@@ -45,7 +47,10 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to listen gRPC: %v", err)
 	}
-	grpcSrv := grpc.NewServer()
+	grpcSrv := grpc.NewServer(
+		grpc.MaxRecvMsgSize(maxMsgSize),
+		grpc.MaxSendMsgSize(maxMsgSize),
+	)
 	pb.RegisterGenerateServer(grpcSrv, server.New(memBroker, llmRegistry))
 
 	// HTTP Server
