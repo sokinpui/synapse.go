@@ -2,6 +2,7 @@ services:
   synapse:
     build: .
     image: synapse
+    container_name: synapse
     network_mode: host
     environment:
       - GENAI_API_KEYS
