@@ -50,22 +50,18 @@ export GENAI_API_KEYS="YOUR_GEMINI_API_KEY_1,YOUR_GEMINI_API_KEY_2"
 export OPENROUTER_API_KEY="YOUR_OPENROUTER_API_KEY"
 ```
 
-### 2. Build
+### 2. Run
 
-Generate gRPC stubs and build the server binary:
+Generate gRPC stubs, tidy modules, and build the server binary:
 
 ```sh
-./build.sh
+./start.sh
 ```
 
-The binary will be placed in the `./bin` directory.
+### 3. Docker
 
-### 3. Run
-
-Run the server (which internally starts the worker pool):
-
-```sh
-./bin/server
+```
+docker compose up -d
 ```
 
 The server will listen for gRPC requests on the port specified in `config.yaml`.

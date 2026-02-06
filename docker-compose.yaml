@@ -1,0 +1,12 @@
+services:
+  synapse:
+    build: .
+    image: synapse
+    network_mode: host
+    environment:
+      - GENAI_API_KEYS
+      - OPENROUTER_API_KEY
+      - http_proxy=http://127.0.0.1:1087
+      - https_proxy=http://127.0.0.1:1087
+      - ALL_PROXY=socks5://127.0.0.1:1080
+    restart: unless-stopped
