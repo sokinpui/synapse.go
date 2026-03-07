@@ -1,31 +1,29 @@
 package client
 
 import (
+	"bufio"
+	"bytes"
 	"context"
-	"crypto/tls"
-	"google.golang.org/grpc/credentials"
+	"encoding/json"
+	"fmt"
 	"io"
+	"net/http"
 	"strings"
-
-	pb "github.com/sokinpui/synapse.go/grpc"
-
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 type GenerationConfig struct {
-	Temperature  *float32
-	TopP         *float32
-	TopK         *float32
-	OutputLength *int32
+	Temperature  *float32 `json:"temperature,omitempty"`
+	TopP         *float32 `json:"top_p,omitempty"`
+	TopK         *float32 `json:"top_k,omitempty"`
+	OutputLength *int32   `json:"output_length,omitempty"`
 }
 
 type GenerateRequest struct {
-	Prompt    string
-	ModelCode string
-	Stream    bool
-	Config    *GenerationConfig
-	Images    [][]byte
+	Prompt    string            `json:"prompt"`
+	ModelCode string            `json:"model_code"`
+	Stream    bool              `json:"stream"`
+	Config    *GenerationConfig `json:"config,omitempty"`
+	Images    [][]byte          `json:"images,omitempty"`
 }
 
 type Result struct {
@@ -37,101 +35,126 @@ type Result struct {
 type Client interface {
 	GenerateTask(ctx context.Context, req *GenerateRequest) (<-chan Result, error)
 	ListModels(ctx context.Context) ([]string, error)
-
 	Close() error
 }
 
-type grpcClient struct {
-	conn   *grpc.ClientConn
-	client pb.GenerateClient
+type httpClient struct {
+	baseURL    string
+	httpClient *http.Client
 }
 
-func New(addr string) (Client, error) {
-	var opts []grpc.DialOption
-
-	// Check if the address ends in :443 (standard SSL port)
-	if strings.HasSuffix(addr, ":443") {
-		// Create TLS credentials
-		creds := credentials.NewTLS(&tls.Config{
-			// In production, you might want to load system roots,
-			// but typically empty Config{} uses system defaults which works for Let's Encrypt.
-		})
-		opts = append(opts, grpc.WithTransportCredentials(creds))
-	} else {
-		// Fallback to insecure for localhost/dev
-		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+func New(addr string) Client {
+	if !strings.HasPrefix(addr, "http") {
+		addr = "http://" + addr
 	}
+	return &httpClient{
+		baseURL:    strings.TrimSuffix(addr, "/"),
+		httpClient: &http.Client{},
+	}
+}
 
-	conn, err := grpc.Dial(addr, opts...)
+func (c *httpClient) Close() error {
+	return nil
+}
+
+func (c *httpClient) ListModels(ctx context.Context) ([]string, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", c.baseURL+"/models", nil)
 	if err != nil {
 		return nil, err
 	}
 
-	return &grpcClient{
-		conn:   conn,
-		client: pb.NewGenerateClient(conn),
-	}, nil
-}
-
-func (c *grpcClient) Close() error {
-	if c.conn == nil {
-		return nil
-	}
-	return c.conn.Close()
-}
-
-func (c *grpcClient) GenerateTask(ctx context.Context, req *GenerateRequest) (<-chan Result, error) {
-	pbReq := &pb.Request{
-		Prompt:    req.Prompt,
-		ModelCode: req.ModelCode,
-		Stream:    req.Stream,
-		Images:    req.Images,
-	}
-
-	if req.Config != nil {
-		pbReq.Config = &pb.GenerationConfig{
-			Temperature:  req.Config.Temperature,
-			TopP:         req.Config.TopP,
-			TopK:         req.Config.TopK,
-			OutputLength: req.Config.OutputLength,
-		}
-	}
-
-	stream, err := c.client.GenerateTask(ctx, pbReq)
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status: %d", resp.StatusCode)
+	}
+
+	var result struct {
+		Models []string `json:"models"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+
+	return result.Models, nil
+}
+
+func (c *httpClient) GenerateTask(ctx context.Context, req *GenerateRequest) (<-chan Result, error) {
+	body, err := json.Marshal(req)
+	if err != nil {
+		return nil, err
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", c.baseURL+"/generate", bytes.NewBuffer(body))
+	if err != nil {
+		return nil, err
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		resp.Body.Close()
+		return nil, fmt.Errorf("unexpected status: %d", resp.StatusCode)
 	}
 
 	resultChan := make(chan Result)
-
-	go func() {
-		defer close(resultChan)
-		for {
-			resp, err := stream.Recv()
-			if err == io.EOF {
-				return // Stream finished successfully
-			}
-			if err != nil {
-				resultChan <- Result{Err: err}
-				return
-			}
-			switch resp.GetType() {
-			case pb.Response_CHUNK:
-				resultChan <- Result{Text: resp.GetChunk()}
-			case pb.Response_KEEPALIVE:
-				// Propagate keep-alive signal to the client application.
-				resultChan <- Result{IsKeepAlive: true}
-			}
-		}
-	}()
+	if req.Stream {
+		go c.handleStream(resp.Body, resultChan)
+	} else {
+		go c.handleUnary(resp.Body, resultChan)
+	}
 
 	return resultChan, nil
 }
 
-func (c *grpcClient) ListModels(ctx context.Context) ([]string, error) {
-	resp, err := c.client.ListModels(ctx, &pb.ListModelsRequest{})
-	if err != nil {
-		return nil, err
+func (c *httpClient) handleUnary(body io.ReadCloser, ch chan<- Result) {
+	defer body.Close()
+	defer close(ch)
+
+	var res struct {
+		Text string `json:"text"`
 	}
-	return resp.Models, nil
+	if err := json.NewDecoder(body).Decode(&res); err != nil {
+		ch <- Result{Err: err}
+		return
+	}
+	ch <- Result{Text: res.Text}
+}
+
+func (c *httpClient) handleStream(body io.ReadCloser, ch chan<- Result) {
+	defer body.Close()
+	defer close(ch)
+
+	scanner := bufio.NewScanner(body)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if !strings.HasPrefix(line, "data: ") {
+			continue
+		}
+
+		data := strings.TrimPrefix(line, "data: ")
+		if data == "" {
+			continue
+		}
+
+		var res struct {
+			Text string `json:"text"`
+		}
+		if err := json.Unmarshal([]byte(data), &res); err != nil {
+			continue
+		}
+		ch <- Result{Text: res.Text}
+	}
+
+	if err := scanner.Err(); err != nil {
+		ch <- Result{Err: err}
+	}
 }

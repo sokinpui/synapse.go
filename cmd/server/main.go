@@ -4,23 +4,18 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"net"
 	"net/http"
 	"os/signal"
 	"runtime"
 	"syscall"
 	"time"
 
-	pb "github.com/sokinpui/synapse.go/grpc"
 	"github.com/sokinpui/synapse.go/internal/broker"
 	"github.com/sokinpui/synapse.go/internal/config"
 	"github.com/sokinpui/synapse.go/internal/server"
 	"github.com/sokinpui/synapse.go/internal/worker"
 	"github.com/sokinpui/synapse.go/model"
-	"google.golang.org/grpc"
 )
-
-const maxMsgSize = 100 * 1024 * 1024 // 100MB
 
 func main() {
 	log.SetPrefix("server: ")
@@ -42,17 +37,6 @@ func main() {
 
 	go w.Run(ctx)
 
-	// gRPC Server
-	grpcLis, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.Server.GRPCPort))
-	if err != nil {
-		log.Fatalf("failed to listen gRPC: %v", err)
-	}
-	grpcSrv := grpc.NewServer(
-		grpc.MaxRecvMsgSize(maxMsgSize),
-		grpc.MaxSendMsgSize(maxMsgSize),
-	)
-	pb.RegisterGenerateServer(grpcSrv, server.New(memBroker, llmRegistry))
-
 	// HTTP Server
 	mux := http.NewServeMux()
 	httpSrv := server.NewHTTPServer(memBroker, llmRegistry)
@@ -60,14 +44,7 @@ func main() {
 	httpAddr := fmt.Sprintf(":%d", cfg.Server.HTTPPort)
 	hSrv := &http.Server{Addr: httpAddr, Handler: mux}
 
-	log.Printf("gRPC Server listening at %v", grpcLis.Addr())
 	log.Printf("HTTP Server listening at %s", httpAddr)
-
-	go func() {
-		if err := grpcSrv.Serve(grpcLis); err != nil && err != grpc.ErrServerStopped {
-			log.Printf("gRPC server error: %v", err)
-		}
-	}()
 
 	go func() {
 		if err := hSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -77,8 +54,6 @@ func main() {
 
 	<-ctx.Done()
 	log.Println("Shutting down servers...")
-
-	grpcSrv.GracefulStop()
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), time.Duration(10*runtime.NumCPU())*time.Second)
 	defer cancel()

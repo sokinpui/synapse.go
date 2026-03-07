@@ -1,19 +1,18 @@
 # Synapse
 
-Simple distributed task queue system implement in gRPC and Go Channels
+Simple distributed task queue system implement in HTTP and Go Channels
 
 ## Architecture
 
-The system consists of two main components: a `server` (supporting gRPC and REST/JSON) and a `worker` running within the same process.
+The system consists of two main components: a `server` (supporting REST/JSON and OpenAI compatibility) and a `worker` running within the same process.
 
 ```
-Client ---gRPC/HTTP---> Server <---Go Channels---> Worker
+Client ---HTTP---> Server <---Go Channels---> Worker
 ```
 
 ## Prerequisites
 
 - Go (1.24+)
-- Protobuf Compiler (`protoc`)
 
 ## Getting Started
 
@@ -25,7 +24,6 @@ Create a `config.yaml` file in the root directory with the following content:
 
 ```yaml
 server:
-  grpc_port: 50051
   http_port: 8080
 
 worker:
@@ -52,7 +50,7 @@ export OPENROUTER_API_KEY="YOUR_OPENROUTER_API_KEY"
 
 ### 2. Run
 
-Generate gRPC stubs, tidy modules, and build the server binary:
+Tidy modules and build the server binary:
 
 ```sh
 ./start.sh
@@ -64,7 +62,7 @@ Generate gRPC stubs, tidy modules, and build the server binary:
 docker compose up -d
 ```
 
-The server will listen for gRPC requests on the port specified in `config.yaml`.
+The server will listen for HTTP requests on the port specified in `config.yaml`.
 
 ## Client Usage
 
@@ -82,10 +80,7 @@ import (
 )
 
 func main() {
-	c, err := client.New("localhost:50051")
-	if err != nil {
-		log.Fatalf("Failed to create client: %v", err)
-	}
+	c := client.New("http://localhost:8080")
 	defer c.Close()
 
 	req := &client.GenerateRequest{
@@ -143,6 +138,26 @@ curl -X POST http://localhost:8080/generate \
   -d '{
     "prompt": "Write a long poem.",
     "model_code": "gemini-2.5-flash",
+    "stream": true
+  }'
+```
+
+## OpenAI Compatible API
+
+You can use any OpenAI-compatible client by pointing it to the Synapse server.
+
+**List Models:**
+```
+curl http://localhost:8080/v1/models
+```
+
+**Chat Completions:**
+```
+curl http://localhost:8080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gemini-2.5-flash",
+    "messages": [{"role": "user", "content": "Say hello!"}],
     "stream": true
   }'
 ```

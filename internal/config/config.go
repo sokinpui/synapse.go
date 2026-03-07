@@ -9,7 +9,6 @@ import (
 
 type Config struct {
 	Server struct {
-		GRPCPort int `yaml:"grpc_port"`
 		HTTPPort int `yaml:"http_port"`
 	} `yaml:"server"`
 	Worker struct {

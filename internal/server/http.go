@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -15,6 +16,8 @@ import (
 	"github.com/sokinpui/synapse.go/internal/models"
 	"github.com/sokinpui/synapse.go/model"
 )
+
+const sentinel = "[DONE]"
 
 type HTTPServer struct {
 	broker      *broker.MemoryBroker
@@ -93,20 +96,17 @@ func (s *HTTPServer) handleOpenAIChatCompletions(w http.ResponseWriter, r *http.
 	taskID := uuid.New().String()
 	log.Printf("-> %s (OpenAI), assigned task_id: %s", color.BlueString("Received request"), taskID)
 
-	var promptBuilder strings.Builder
-	for _, msg := range oaiReq.Messages {
-		promptBuilder.WriteString(fmt.Sprintf("%s: %s\n", msg.Role, msg.Content))
-	}
-
+	prompt, images := s.parseOpenAIMessages(oaiReq.Messages)
 	task := &models.GenerationTask{
 		TaskID:    taskID,
-		Prompt:    promptBuilder.String(),
+		Prompt:    prompt,
 		ModelCode: oaiReq.Model,
 		Stream:    oaiReq.Stream,
 		Config: &model.Config{
 			Temperature:  oaiReq.Temperature,
 			OutputLength: oaiReq.MaxTokens,
 		},
+		Images: images,
 	}
 
 	resCh := s.broker.Subscribe(taskID)
@@ -245,4 +245,66 @@ func (s *HTTPServer) aggregateOpenAIResults(w http.ResponseWriter, task *models.
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
+}
+
+func (s *HTTPServer) parseOpenAIMessages(messages []models.OpenAIChatMessage) (string, [][]byte) {
+	var promptBuilder strings.Builder
+	var images [][]byte
+
+	for _, msg := range messages {
+		promptBuilder.WriteString(fmt.Sprintf("%s: ", msg.Role))
+		s.appendContentToPrompt(&promptBuilder, &images, msg.Content)
+		promptBuilder.WriteString("\n")
+	}
+	return promptBuilder.String(), images
+}
+
+func (s *HTTPServer) appendContentToPrompt(sb *strings.Builder, images *[][]byte, content any) {
+	if content == nil {
+		return
+	}
+
+	if str, ok := content.(string); ok {
+		sb.WriteString(str)
+		return
+	}
+
+	parts, ok := content.([]any)
+	if !ok {
+		return
+	}
+
+	for _, p := range parts {
+		m, ok := p.(map[string]any)
+		if !ok {
+			continue
+		}
+
+		contentType, _ := m["type"].(string)
+		if contentType == "text" {
+			text, _ := m["text"].(string)
+			sb.WriteString(text)
+			continue
+		}
+
+		if contentType == "image_url" {
+			imgURLMap, _ := m["image_url"].(map[string]any)
+			url, _ := imgURLMap["url"].(string)
+			if data := s.decodeBase64Image(url); data != nil {
+				*images = append(*images, data)
+			}
+		}
+	}
+}
+
+func (s *HTTPServer) decodeBase64Image(dataURL string) []byte {
+	if !strings.HasPrefix(dataURL, "data:image/") {
+		return nil
+	}
+	idx := strings.Index(dataURL, ",")
+	if idx == -1 {
+		return nil
+	}
+	data, _ := base64.StdEncoding.DecodeString(dataURL[idx+1:])
+	return data
 }

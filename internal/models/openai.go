@@ -2,8 +2,21 @@ package models
 
 type OpenAIChatMessage struct {
 	Role    string `json:"role"`
-	Content string `json:"content"`
+	Content any    `json:"content"` // Can be string or []MessageContentPart
 }
+
+type MessageContentPart struct {
+	Type     string          `json:"type"`
+	Text     string          `json:"text,omitempty"`
+	ImageURL *MessageImageURL `json:"image_url,omitempty"`
+}
+
+type MessageImageURL struct {
+	URL    string `json:"url"`
+	Detail string `json:"detail,omitempty"`
+}
+
+type OpenAIChatContentPart []MessageContentPart
 
 type OpenAIChatRequest struct {
 	Model       string              `json:"model"`
