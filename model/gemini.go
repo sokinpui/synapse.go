@@ -3,14 +3,11 @@ package model
 import (
 	"context"
 	"fmt"
-	"math/rand"
-	"os"
-	"strings"
-	"time"
-
 	"github.com/sokinpui/synapse.go/internal/config"
 	"google.golang.org/genai"
 	"google.golang.org/genai/tokenizer"
+	"os"
+	"strings"
 )
 
 func init() {
@@ -30,9 +27,10 @@ func newGeminiProvider(cfg *config.Config) (map[string]LLM, error) {
 
 	models := make(map[string]LLM)
 	ctx := context.Background()
+	balancer := NewKeyBalancer(apiKeys)
 
 	for _, code := range cfg.Models.Gemini.Codes {
-		model, err := NewGeminiModel(ctx, code, apiKeys)
+		model, err := NewGeminiModel(ctx, code, balancer)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create Gemini model '%s': %w", code, err)
 		}
@@ -43,30 +41,20 @@ func newGeminiProvider(cfg *config.Config) (map[string]LLM, error) {
 }
 
 type GeminiModel struct {
-	model   string
-	apiKeys []string
+	model    string
+	balancer *KeyBalancer
 }
 
-func NewGeminiModel(ctx context.Context, modelCode string, apiKeys []string) (*GeminiModel, error) {
+func NewGeminiModel(ctx context.Context, modelCode string, balancer *KeyBalancer) (*GeminiModel, error) {
 	return &GeminiModel{
-		model:   modelCode,
-		apiKeys: apiKeys,
+		model:    modelCode,
+		balancer: balancer,
 	}, nil
-}
-
-func (m *GeminiModel) getShuffledKeys() []string {
-	shuffledKeys := make([]string, len(m.apiKeys))
-	copy(shuffledKeys, m.apiKeys)
-
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	r.Shuffle(len(shuffledKeys), func(i, j int) { shuffledKeys[i], shuffledKeys[j] = shuffledKeys[j], shuffledKeys[i] })
-
-	return shuffledKeys
 }
 
 // Generate performs a non-streaming text generation.
 func (m *GeminiModel) Generate(ctx context.Context, prompt string, images [][]byte, config *Config) (string, error) {
-	if len(m.apiKeys) == 0 {
+	if m.balancer.KeyCount() == 0 {
 		return "", fmt.Errorf("%w: API key is required for generation", ErrConfiguration)
 	}
 
@@ -78,7 +66,8 @@ func (m *GeminiModel) Generate(ctx context.Context, prompt string, images [][]by
 	genConfig := getGenConfig(config)
 	var lastErr error
 
-	for _, apiKey := range m.getShuffledKeys() {
+	for i := 0; i < m.balancer.KeyCount(); i++ {
+		apiKey := m.balancer.PickKey()
 		client, err := genai.NewClient(ctx, &genai.ClientConfig{APIKey: apiKey, Backend: genai.BackendGeminiAPI})
 		if err != nil {
 			lastErr = fmt.Errorf("failed to create genai client: %w", err)
@@ -111,7 +100,7 @@ func (m *GeminiModel) GenerateStream(ctx context.Context, prompt string, images 
 		defer close(outCh)
 		defer close(errCh)
 
-		if len(m.apiKeys) == 0 {
+		if m.balancer.KeyCount() == 0 {
 			errCh <- fmt.Errorf("%w: API key is required for generation", ErrConfiguration)
 			return
 		}
@@ -124,7 +113,8 @@ func (m *GeminiModel) GenerateStream(ctx context.Context, prompt string, images 
 
 		var lastErr error
 
-		for _, apiKey := range m.getShuffledKeys() {
+		for i := 0; i < m.balancer.KeyCount(); i++ {
+			apiKey := m.balancer.PickKey()
 			client, err := genai.NewClient(ctx, &genai.ClientConfig{APIKey: apiKey, Backend: genai.BackendGeminiAPI})
 			if err != nil {
 				lastErr = fmt.Errorf("failed to create genai client: %w", err)
