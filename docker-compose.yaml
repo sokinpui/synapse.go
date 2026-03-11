@@ -8,10 +8,10 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
-      - GENAI_API_KEYS
-      - OPENROUTER_API_KEY
-      # Works on Mac (via Orbstack/Docker Desktop) and Linux (via host-gateway)
+      # deploy locally, require v2ray proxy to use gemini api
       - http_proxy=http://host.docker.internal:1087
       - https_proxy=http://host.docker.internal:1087
       - ALL_PROXY=socks5://host.docker.internal:1080
+      - GENAI_API_KEYS=${GENAI_API_KEYS}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
     restart: unless-stopped
