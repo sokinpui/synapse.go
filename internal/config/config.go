@@ -9,19 +9,19 @@ import (
 
 type Config struct {
 	Server struct {
-		HTTPPort int `yaml:"http_port"`
-	} `yaml:"server"`
+		HTTPPort int `mapstructure:"http_port"`
+	} `mapstructure:"server"`
 	Worker struct {
-		ConcurrencyMultiplier int `yaml:"concurrency_multiplier"`
-	} `yaml:"worker"`
+		ConcurrencyMultiplier int `mapstructure:"concurrency_multiplier"`
+	} `mapstructure:"worker"`
 	Models struct {
-		Gemini     ProviderConfig `yaml:"gemini"`
-		OpenRouter ProviderConfig `yaml:"openrouter"`
-	} `yaml:"models"`
+		Gemini     ProviderConfig `mapstructure:"gemini"`
+		OpenRouter ProviderConfig `mapstructure:"openrouter"`
+	} `mapstructure:"models"`
 }
 
 type ProviderConfig struct {
-	Codes []string `yaml:"codes"`
+	Codes []string `mapstructure:"codes"`
 }
 
 func Load() *Config {
@@ -38,11 +38,16 @@ func Load() *Config {
 	}
 
 	viper.WatchConfig()
-	viper.OnConfigChange(func(e fsnotify.Event) {
-		log.Printf("Config file changed: %s", e.Name)
-	})
 
 	return getConfig()
+}
+
+func (c *Config) OnUpdate(fn func(*Config)) {
+	viper.OnConfigChange(func(e fsnotify.Event) {
+		if updated := getConfig(); updated != nil {
+			fn(updated)
+		}
+	})
 }
 
 func getConfig() *Config {

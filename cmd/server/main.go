@@ -27,9 +27,19 @@ func main() {
 		log.Printf("Warning: Failed to initialize LLM registry: %v", err)
 	}
 
+	cfg.OnUpdate(func(newCfg *config.Config) {
+		log.Println("Configuration changed, reloading model registry...")
+		if err := llmRegistry.Reload(newCfg); err != nil {
+			log.Printf("Failed to reload registry: %v", err)
+		}
+	})
+
 	memBroker := broker.NewMemoryBroker(1000)
 
 	concurrency := cfg.Worker.ConcurrencyMultiplier * runtime.NumCPU()
+	if concurrency <= 0 {
+		concurrency = 1
+	}
 	w := worker.New(memBroker, llmRegistry, concurrency)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
