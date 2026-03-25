@@ -7,9 +7,14 @@ import (
 	"github.com/sokinpui/synapse.go/internal/config"
 )
 
+type StreamChunk struct {
+	Text    string `json:"text,omitempty"`
+	Thought string `json:"thought,omitempty"`
+}
+
 type LLM interface {
-	Generate(ctx context.Context, prompt string, images [][]byte, config *Config) (string, error)
-	GenerateStream(ctx context.Context, prompt string, images [][]byte, config *Config) (<-chan string, <-chan error)
+	Generate(ctx context.Context, prompt string, images [][]byte, config *Config) (*StreamChunk, error)
+	GenerateStream(ctx context.Context, prompt string, images [][]byte, config *Config) (<-chan StreamChunk, <-chan error)
 	CountTokens(prompt string) (int, error)
 }
 

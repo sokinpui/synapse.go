@@ -43,7 +43,7 @@ func NewOpenRouterModel(ctx context.Context, modelCode string, apiKey string) (*
 	}, nil
 }
 
-func (orm *OpenRouterModel) Generate(ctx context.Context, prompt string, images [][]byte, config *Config) (string, error) {
+func (orm *OpenRouterModel) Generate(ctx context.Context, prompt string, images [][]byte, config *Config) (*StreamChunk, error) {
 	/* TODO: don't support Image yet */
 	client := openrouter.NewClient(orm.apiKey)
 	req := openrouter.ChatCompletionRequest{
@@ -71,14 +71,22 @@ func (orm *OpenRouterModel) Generate(ctx context.Context, prompt string, images 
 	response, err := client.CreateChatCompletion(ctx, req)
 
 	if err != nil {
-		return "", fmt.Errorf("OpenRouter API error: %w", err)
+		return nil, fmt.Errorf("OpenRouter API error: %w", err)
 	}
 
-	return response.Choices[0].Message.Content.Text, nil
+	thought := ""
+	if response.Choices[0].Message.ReasoningContent != nil {
+		thought = *response.Choices[0].Message.ReasoningContent
+	}
+
+	return &StreamChunk{
+		Text:    response.Choices[0].Message.Content.Text,
+		Thought: thought,
+	}, nil
 }
 
-func (orm *OpenRouterModel) GenerateStream(ctx context.Context, prompt string, images [][]byte, config *Config) (<-chan string, <-chan error) {
-	outCh := make(chan string)
+func (orm *OpenRouterModel) GenerateStream(ctx context.Context, prompt string, images [][]byte, config *Config) (<-chan StreamChunk, <-chan error) {
+	outCh := make(chan StreamChunk)
 	errCh := make(chan error, 1)
 
 	go func() {
@@ -122,7 +130,10 @@ func (orm *OpenRouterModel) GenerateStream(ctx context.Context, prompt string, i
 			if err != nil {
 				break
 			}
-			outCh <- response.Choices[0].Delta.Content
+			outCh <- StreamChunk{
+				Text:    response.Choices[0].Delta.Content,
+				Thought: response.Choices[0].Delta.ReasoningContent,
+			}
 		}
 	}()
 

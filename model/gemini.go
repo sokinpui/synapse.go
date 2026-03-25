@@ -48,17 +48,17 @@ func NewGeminiModel(ctx context.Context, modelCode string, balancer *KeyBalancer
 }
 
 // Generate performs a non-streaming text generation.
-func (m *GeminiModel) Generate(ctx context.Context, prompt string, images [][]byte, config *Config) (string, error) {
+func (m *GeminiModel) Generate(ctx context.Context, prompt string, images [][]byte, config *Config) (*StreamChunk, error) {
 	if m.balancer.KeyCount() == 0 {
-		return "", fmt.Errorf("%w: API key is required for generation", ErrConfiguration)
+		return nil, fmt.Errorf("%w: API key is required for generation", ErrConfiguration)
 	}
 
 	content, err := buildContent(prompt, images)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	genConfig := getGenConfig(config)
+	genConfig := getGenConfig(m.model, config)
 	var lastErr error
 
 	for i := 0; i < m.balancer.KeyCount(); i++ {
@@ -75,20 +75,28 @@ func (m *GeminiModel) Generate(ctx context.Context, prompt string, images [][]by
 			continue
 		}
 
-		if len(resp.Candidates) == 0 || len(resp.Candidates[0].Content.Parts) == 0 {
-			return "", fmt.Errorf("%w: no content in response", ErrGeneration)
+		if len(resp.Candidates) == 0 || resp.Candidates[0].Content == nil {
+			return nil, fmt.Errorf("%w: no content in response", ErrGeneration)
 		}
 
-		return resp.Text(), nil
+		res := &StreamChunk{}
+		for _, part := range resp.Candidates[0].Content.Parts {
+			if part.Thought {
+				res.Thought += part.Text
+				continue
+			}
+			res.Text += part.Text
+		}
+		return res, nil
 	}
 
-	return "", fmt.Errorf("all API keys failed: %w", lastErr)
+	return nil, fmt.Errorf("all API keys failed: %w", lastErr)
 }
 
 // GenerateStream performs a streaming text generation.
-func (m *GeminiModel) GenerateStream(ctx context.Context, prompt string, images [][]byte, config *Config) (<-chan string, <-chan error) {
-	genConfig := getGenConfig(config)
-	outCh := make(chan string)
+func (m *GeminiModel) GenerateStream(ctx context.Context, prompt string, images [][]byte, config *Config) (<-chan StreamChunk, <-chan error) {
+	genConfig := getGenConfig(m.model, config)
+	outCh := make(chan StreamChunk)
 	errCh := make(chan error, 1)
 
 	go func() {
@@ -122,8 +130,20 @@ func (m *GeminiModel) GenerateStream(ctx context.Context, prompt string, images 
 					if err != nil {
 						return err
 					}
-					if resp != nil && len(resp.Candidates) > 0 && len(resp.Candidates[0].Content.Parts) > 0 {
-						outCh <- resp.Text()
+					if resp == nil || len(resp.Candidates) == 0 || resp.Candidates[0].Content == nil {
+						continue
+					}
+					for _, part := range resp.Candidates[0].Content.Parts {
+						chunk := StreamChunk{}
+						if part.Thought {
+							chunk.Thought = part.Text
+						} else {
+							if part.Text == "" {
+								continue
+							}
+							chunk.Text = part.Text
+						}
+						outCh <- chunk
 					}
 				}
 				return nil
@@ -170,28 +190,21 @@ func (m *GeminiModel) CountTokens(prompt string) (int, error) {
 	return int(ntoks.TotalTokens), nil
 }
 
-func getGenConfig(config *Config) *genai.GenerateContentConfig {
-	if config == nil {
-		return &genai.GenerateContentConfig{}
+func getGenConfig(modelCode string, config *Config) *genai.GenerateContentConfig {
+	var thinking *genai.ThinkingConfig
+	if strings.Contains(modelCode, "thinking") || strings.Contains(modelCode, "gemini-3") {
+		thinking = &genai.ThinkingConfig{IncludeThoughts: true}
 	}
 
-	// var tools = []*genai.Tool{
-	// 	{
-	// 		GoogleSearch: &genai.GoogleSearch{},
-	// 		URLContext:   &genai.URLContext{},
-	// 	},
-	// }
-
-	// disable tools if code is gemini-3-flash-preview
-	// if m.model == "gemini-3-flash-preview" {
-	// 	tools = nil
-	// }
+	if config == nil {
+		return &genai.GenerateContentConfig{ThinkingConfig: thinking}
+	}
 
 	return &genai.GenerateContentConfig{
 		Temperature:     config.Temperature,
 		TopP:            config.TopP,
 		TopK:            config.TopK,
 		MaxOutputTokens: config.OutputLength,
-		// Tools:           tools,
+		ThinkingConfig:  thinking,
 	}
 }

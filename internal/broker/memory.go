@@ -4,11 +4,12 @@ import (
 	"sync"
 
 	"github.com/sokinpui/synapse.go/internal/models"
+	"github.com/sokinpui/synapse.go/model"
 )
 
 type MemoryBroker struct {
 	tasks         chan *models.GenerationTask
-	subscribers   map[string]chan string
+	subscribers   map[string]chan model.StreamChunk
 	cancellations map[string]chan struct{}
 	mu            sync.RWMutex
 }
@@ -16,7 +17,7 @@ type MemoryBroker struct {
 func NewMemoryBroker(bufferSize int) *MemoryBroker {
 	return &MemoryBroker{
 		tasks:         make(chan *models.GenerationTask, bufferSize),
-		subscribers:   make(map[string]chan string),
+		subscribers:   make(map[string]chan model.StreamChunk),
 		cancellations: make(map[string]chan struct{}),
 	}
 }
@@ -29,11 +30,11 @@ func (b *MemoryBroker) Dequeue() <-chan *models.GenerationTask {
 	return b.tasks
 }
 
-func (b *MemoryBroker) Subscribe(id string) chan string {
+func (b *MemoryBroker) Subscribe(id string) chan model.StreamChunk {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	ch := make(chan string, 100)
+	ch := make(chan model.StreamChunk, 100)
 	b.subscribers[id] = ch
 	return ch
 }
@@ -53,7 +54,7 @@ func (b *MemoryBroker) Unsubscribe(id string) {
 	}
 }
 
-func (b *MemoryBroker) Publish(id string, msg string) {
+func (b *MemoryBroker) Publish(id string, msg model.StreamChunk) {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 
