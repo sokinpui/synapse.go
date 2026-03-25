@@ -7,6 +7,8 @@ services:
       - "8080:8080"
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    volumes:
+      - ./config.yaml:/app/config.yaml
     environment:
       # deploy locally, require v2ray proxy to use gemini api
       - http_proxy=http://host.docker.internal:1087

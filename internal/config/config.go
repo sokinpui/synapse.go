@@ -3,8 +3,8 @@ package config
 import (
 	"log"
 	"os"
-
-	"gopkg.in/yaml.v3"
+	"github.com/fsnotify/fsnotify"
+	"github.com/spf13/viper"
 )
 
 type Config struct {
@@ -24,19 +24,32 @@ type ProviderConfig struct {
 	Codes []string `yaml:"codes"`
 }
 
-// Load reads configuration from the YAML file.
 func Load() *Config {
-	path := "config.yaml"
-	data, err := os.ReadFile(path)
-	if err != nil {
-		log.Fatalf("failed to read config file at %s: %v. Make sure it exists.", path, err)
+	path := os.Getenv("SYNAPSE_CONFIG_PATH")
+	if path == "" {
+		path = "config.yaml"
 	}
 
+	viper.SetConfigFile(path)
+	viper.SetConfigType("yaml")
+
+	if err := viper.ReadInConfig(); err != nil {
+		log.Fatalf("Error reading config file: %s", err)
+	}
+
+	viper.WatchConfig()
+	viper.OnConfigChange(func(e fsnotify.Event) {
+		log.Printf("Config file changed: %s", e.Name)
+	})
+
+	return getConfig()
+}
+
+func getConfig() *Config {
 	var cfg Config
-	err = yaml.Unmarshal(data, &cfg)
-	if err != nil {
-		log.Fatalf("failed to unmarshal config: %v", err)
+	if err := viper.Unmarshal(&cfg); err != nil {
+		log.Printf("Unable to decode into struct: %v", err)
+		return nil
 	}
-
 	return &cfg
 }

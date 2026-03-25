@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
+	"github.com/sokinpui/synapse.go/internal/color"
 	"os"
 
 	openrouter "github.com/revrost/go-openrouter"
@@ -19,6 +21,12 @@ func newOpenRouterProvider(cfg *config.Config) (map[string]LLM, error) {
 
 	models := make(map[string]LLM)
 	ctx := context.Background()
+
+	keyCount := 0
+	if apiKey != "" {
+		keyCount = 1
+	}
+	log.Printf("Provider %s initialized with %d keys", color.GreenString("OpenRouter"), keyCount)
 
 	for _, code := range cfg.Models.OpenRouter.Codes {
 		model, err := NewOpenRouterModel(ctx, code, apiKey)
