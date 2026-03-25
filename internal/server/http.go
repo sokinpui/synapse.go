@@ -82,11 +82,11 @@ func (s *HTTPServer) handleGenerate(w http.ResponseWriter, r *http.Request) {
 	s.broker.Enqueue(&req)
 
 	if req.Stream {
-		s.streamHTTPResults(w, r, resCh)
+		s.streamHTTPResult(w, r, resCh)
 		return
 	}
 
-	s.aggregateHTTPResults(w, resCh)
+	s.unaryHTTPResult(w, resCh)
 }
 
 func (s *HTTPServer) handleOpenAIChatCompletions(w http.ResponseWriter, r *http.Request) {
@@ -117,13 +117,13 @@ func (s *HTTPServer) handleOpenAIChatCompletions(w http.ResponseWriter, r *http.
 	s.broker.Enqueue(task)
 
 	if task.Stream {
-		s.streamOpenAIResults(w, r, task, resCh)
+		s.streamOpenAIResult(w, r, task, resCh)
 		return
 	}
-	s.aggregateOpenAIResults(w, task, resCh)
+	s.unaryOpenAIResult(w, task, resCh)
 }
 
-func (s *HTTPServer) streamHTTPResults(w http.ResponseWriter, r *http.Request, ch <-chan model.StreamChunk) {
+func (s *HTTPServer) streamHTTPResult(w http.ResponseWriter, r *http.Request, ch <-chan model.StreamChunk) {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
@@ -153,7 +153,7 @@ func (s *HTTPServer) streamHTTPResults(w http.ResponseWriter, r *http.Request, c
 	}
 }
 
-func (s *HTTPServer) aggregateHTTPResults(w http.ResponseWriter, ch <-chan model.StreamChunk) {
+func (s *HTTPServer) unaryHTTPResult(w http.ResponseWriter, ch <-chan model.StreamChunk) {
 	var textSb strings.Builder
 	var thoughtSb strings.Builder
 	for data := range ch {
@@ -171,7 +171,7 @@ func (s *HTTPServer) aggregateHTTPResults(w http.ResponseWriter, ch <-chan model
 	})
 }
 
-func (s *HTTPServer) streamOpenAIResults(w http.ResponseWriter, r *http.Request, task *models.GenerationTask, ch <-chan model.StreamChunk) {
+func (s *HTTPServer) streamOpenAIResult(w http.ResponseWriter, r *http.Request, task *models.GenerationTask, ch <-chan model.StreamChunk) {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
@@ -222,7 +222,7 @@ func (s *HTTPServer) streamOpenAIResults(w http.ResponseWriter, r *http.Request,
 	}
 }
 
-func (s *HTTPServer) aggregateOpenAIResults(w http.ResponseWriter, task *models.GenerationTask, ch <-chan model.StreamChunk) {
+func (s *HTTPServer) unaryOpenAIResult(w http.ResponseWriter, task *models.GenerationTask, ch <-chan model.StreamChunk) {
 	var textSb strings.Builder
 	var thoughtSb strings.Builder
 	for data := range ch {
