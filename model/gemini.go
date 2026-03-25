@@ -119,6 +119,7 @@ func (m *GeminiModel) GenerateStream(ctx context.Context, prompt string, images 
 			return
 		}
 
+		sentAny := false
 		var lastErr error
 
 		for i := 0; i < m.balancer.KeyCount(); i++ {
@@ -150,12 +151,17 @@ func (m *GeminiModel) GenerateStream(ctx context.Context, prompt string, images 
 							chunk.Text = part.Text
 						}
 						outCh <- chunk
+						sentAny = true
 					}
 				}
 				return nil
 			}()
 
 			if streamErr != nil {
+				if sentAny {
+					errCh <- streamErr
+					return
+				}
 				log.Printf("%s API Key [%s...] failed for provider Gemini: %v", color.YellowString("Warning"), apiKey[:min(len(apiKey), 8)], streamErr)
 				lastErr = fmt.Errorf("%w: %v", ErrGeneration, streamErr)
 				continue

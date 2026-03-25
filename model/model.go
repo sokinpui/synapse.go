@@ -13,6 +13,11 @@ type StreamChunk struct {
 	Thought string `json:"thought,omitempty"`
 }
 
+var Sentinel = StreamChunk{
+	Text:    "[DONE]",
+	Thought: "[DONE]",
+}
+
 type LLM interface {
 	Generate(ctx context.Context, prompt string, images [][]byte, config *Config) (*StreamChunk, error)
 	GenerateStream(ctx context.Context, prompt string, images [][]byte, config *Config) (<-chan StreamChunk, <-chan error)

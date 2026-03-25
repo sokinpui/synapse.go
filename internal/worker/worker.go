@@ -13,11 +13,6 @@ import (
 	"github.com/sokinpui/synapse.go/model"
 )
 
-var sentinel = model.StreamChunk{
-	Text:    "[DONE]",
-	Thought: "[DONE]",
-}
-
 // GenAIWorker dequeues and processes generation tasks.
 type GenAIWorker struct {
 	workerID    string
@@ -74,7 +69,7 @@ func (w *GenAIWorker) processTask(ctx context.Context, task *models.GenerationTa
 	resultChannel := task.TaskID
 
 	defer func() {
-		w.broker.Publish(resultChannel, sentinel)
+		w.broker.Publish(resultChannel, model.Sentinel)
 	}()
 
 	llm, err := w.llmRegistry.GetModel(task.ModelCode)

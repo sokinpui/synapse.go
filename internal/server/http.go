@@ -17,11 +17,6 @@ import (
 	"github.com/sokinpui/synapse.go/model"
 )
 
-var sentinel = model.StreamChunk{
-	Text:    "[DONE]",
-	Thought: "[DONE]",
-}
-
 type HTTPServer struct {
 	broker      *broker.MemoryBroker
 	llmRegistry *model.Registry
@@ -139,7 +134,9 @@ func (s *HTTPServer) streamHTTPResult(w http.ResponseWriter, r *http.Request, ch
 		case <-r.Context().Done():
 			return
 		case data, ok := <-ch:
-			if !ok || data == sentinel {
+			if !ok || data == model.Sentinel {
+				io.WriteString(w, "data: [DONE]\n\n")
+				flusher.Flush()
 				return
 			}
 			jsonData, err := json.Marshal(data)
@@ -157,7 +154,7 @@ func (s *HTTPServer) unaryHTTPResult(w http.ResponseWriter, ch <-chan model.Stre
 	var textSb strings.Builder
 	var thoughtSb strings.Builder
 	for data := range ch {
-		if data == sentinel {
+		if data == model.Sentinel {
 			break
 		}
 		textSb.WriteString(data.Text)
@@ -189,7 +186,7 @@ func (s *HTTPServer) streamOpenAIResult(w http.ResponseWriter, r *http.Request, 
 		case <-r.Context().Done():
 			return
 		case data, ok := <-ch:
-			if !ok || data == sentinel {
+			if !ok || data == model.Sentinel {
 				io.WriteString(w, "data: [DONE]\n\n")
 				flusher.Flush()
 				return
@@ -226,7 +223,7 @@ func (s *HTTPServer) unaryOpenAIResult(w http.ResponseWriter, task *models.Gener
 	var textSb strings.Builder
 	var thoughtSb strings.Builder
 	for data := range ch {
-		if data == sentinel {
+		if data == model.Sentinel {
 			break
 		}
 		textSb.WriteString(data.Text)
