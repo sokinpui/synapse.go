@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/sokinpui/synapse.go/internal/color"
 	"github.com/sokinpui/synapse.go/internal/config"
@@ -69,15 +70,23 @@ func (m *GeminiModel) Generate(ctx context.Context, prompt string, images [][]by
 		apiKey := m.balancer.PickKey()
 		client, err := genai.NewClient(ctx, &genai.ClientConfig{APIKey: apiKey, Backend: genai.BackendGeminiAPI})
 		if err != nil {
-			log.Printf("%s API Key [%s...] failed for provider Gemini: %v", color.YellowString("Warning"), apiKey[:min(len(apiKey), 8)], err)
+			log.Printf("%s API Key failed for provider Gemini: %v", color.YellowString("Warning"), err)
 			lastErr = fmt.Errorf("failed to create genai client: %w", err)
 			continue
 		}
 
 		resp, err := client.Models.GenerateContent(ctx, m.model, content, genConfig)
 		if err != nil {
-			log.Printf("%s API Key [%s...] failed for provider Gemini: %v", color.YellowString("Warning"), apiKey[:min(len(apiKey), 8)], err)
+			log.Printf("%s API Key failed for provider Gemini: %v", color.YellowString("Warning"), err)
 			lastErr = fmt.Errorf("%w: %v", ErrGeneration, err)
+
+			if i < m.balancer.KeyCount()-1 {
+				select {
+				case <-ctx.Done():
+					return nil, ctx.Err()
+				case <-time.After(2 * time.Second):
+				}
+			}
 			continue
 		}
 
@@ -126,7 +135,7 @@ func (m *GeminiModel) GenerateStream(ctx context.Context, prompt string, images 
 			apiKey := m.balancer.PickKey()
 			client, err := genai.NewClient(ctx, &genai.ClientConfig{APIKey: apiKey, Backend: genai.BackendGeminiAPI})
 			if err != nil {
-				log.Printf("%s API Key [%s...] failed for provider Gemini: %v", color.YellowString("Warning"), apiKey[:min(len(apiKey), 8)], err)
+				log.Printf("%s API Key failed for provider Gemini: %v", color.YellowString("Warning"), err)
 				lastErr = fmt.Errorf("failed to create genai client: %w", err)
 				continue
 			}
@@ -162,8 +171,17 @@ func (m *GeminiModel) GenerateStream(ctx context.Context, prompt string, images 
 					errCh <- streamErr
 					return
 				}
-				log.Printf("%s API Key [%s...] failed for provider Gemini: %v", color.YellowString("Warning"), apiKey[:min(len(apiKey), 8)], streamErr)
+				log.Printf("%s API Key failed for provider Gemini: %v", color.YellowString("Warning"), err)
 				lastErr = fmt.Errorf("%w: %v", ErrGeneration, streamErr)
+
+				if i < m.balancer.KeyCount()-1 {
+					select {
+					case <-ctx.Done():
+						errCh <- ctx.Err()
+						return
+					case <-time.After(2 * time.Second):
+					}
+				}
 				continue
 			}
 			return
