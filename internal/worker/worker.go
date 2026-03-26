@@ -13,6 +13,8 @@ import (
 	"github.com/sokinpui/synapse.go/model"
 )
 
+const sentinel = "[DONE]"
+
 // GenAIWorker dequeues and processes generation tasks.
 type GenAIWorker struct {
 	workerID    string
@@ -69,20 +71,21 @@ func (w *GenAIWorker) processTask(ctx context.Context, task *models.GenerationTa
 	resultChannel := task.TaskID
 
 	defer func() {
-		w.broker.Publish(resultChannel, model.Sentinel)
+		w.broker.Publish(resultChannel, sentinel)
 	}()
 
-	llm, err := w.llmRegistry.GetModel(task.ModelCode)
+	model, err := w.llmRegistry.GetModel(task.ModelCode)
 	if err != nil {
 		log.Printf("Error getting model for task %s: %v", task.TaskID, err)
-		w.broker.Publish(resultChannel, model.StreamChunk{Text: fmt.Sprintf("Error: %v", err)})
+		errMsg := fmt.Sprintf("Error: %v", err)
+		w.broker.Publish(resultChannel, errMsg)
 		return
 	}
 
 	if task.Stream {
-		err = w.processStream(taskCtx, task, llm)
+		err = w.processStream(taskCtx, task, model)
 	} else {
-		err = w.process(taskCtx, task, llm)
+		err = w.process(taskCtx, task, model)
 	}
 
 	if err != nil {
@@ -91,7 +94,8 @@ func (w *GenAIWorker) processTask(ctx context.Context, task *models.GenerationTa
 			return
 		}
 		log.Printf("Error processing generation task %s: %v", task.TaskID, err)
-		w.broker.Publish(resultChannel, model.StreamChunk{Text: fmt.Sprintf("Error: %v", err)})
+		errMsg := fmt.Sprintf("Error: %v", err)
+		w.broker.Publish(resultChannel, errMsg)
 	}
 }
 
@@ -104,17 +108,17 @@ func (w *GenAIWorker) listenForCancellation(ctx context.Context, taskID string, 
 	}
 }
 
-func (w *GenAIWorker) process(ctx context.Context, task *models.GenerationTask, llm model.LLM) error {
-	chunk, err := llm.Generate(ctx, task.Prompt, task.Images, task.Config)
+func (w *GenAIWorker) process(ctx context.Context, task *models.GenerationTask, model model.LLM) error {
+	result, err := model.Generate(ctx, task.Prompt, task.Images, task.Config)
 	if err != nil {
 		return err
 	}
-	w.broker.Publish(task.TaskID, *chunk)
+	w.broker.Publish(task.TaskID, result)
 	return nil
 }
 
-func (w *GenAIWorker) processStream(ctx context.Context, task *models.GenerationTask, llm model.LLM) error {
-	outCh, errCh := llm.GenerateStream(ctx, task.Prompt, task.Images, task.Config)
+func (w *GenAIWorker) processStream(ctx context.Context, task *models.GenerationTask, model model.LLM) error {
+	outCh, errCh := model.GenerateStream(ctx, task.Prompt, task.Images, task.Config)
 
 	for {
 		select {

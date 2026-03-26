@@ -1,10 +1,6 @@
 package model
 
-import (
-	"log"
-	"sync"
-	"github.com/sokinpui/synapse.go/internal/color"
-)
+import "sync"
 
 // api key table
 // index | key | used
@@ -14,17 +10,16 @@ type apiKeyState struct {
 }
 
 type KeyBalancer struct {
-	provider string
-	keys     []apiKeyState
-	mu       sync.Mutex
+	keys []apiKeyState
+	mu   sync.Mutex
 }
 
-func NewKeyBalancer(provider string, apiKeys []string) *KeyBalancer {
+func NewKeyBalancer(apiKeys []string) *KeyBalancer {
 	states := make([]apiKeyState, len(apiKeys))
 	for i, key := range apiKeys {
 		states[i] = apiKeyState{Value: key, Used: false}
 	}
-	return &KeyBalancer{provider: provider, keys: states}
+	return &KeyBalancer{keys: states}
 }
 
 func (b *KeyBalancer) PickKey() string {
@@ -69,7 +64,6 @@ func (b *KeyBalancer) areAllUsed() bool {
 }
 
 func (b *KeyBalancer) reset() {
-	log.Printf("%s API key table reset for provider: %s", color.BlueString("Balancer"), b.provider)
 	for i := range b.keys {
 		b.keys[i].Used = false
 	}

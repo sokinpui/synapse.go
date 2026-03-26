@@ -3,12 +3,11 @@ package models
 type OpenAIChatMessage struct {
 	Role    string `json:"role"`
 	Content any    `json:"content"` // Can be string or []MessageContentPart
-	Thought string `json:"reasoning_content,omitempty"`
 }
 
 type MessageContentPart struct {
-	Type     string           `json:"type"`
-	Text     string           `json:"text,omitempty"`
+	Type     string          `json:"type"`
+	Text     string          `json:"text,omitempty"`
 	ImageURL *MessageImageURL `json:"image_url,omitempty"`
 }
 
@@ -53,7 +52,6 @@ type ChatCompletionChunk struct {
 type ChunkChoice struct {
 	Index        int               `json:"index"`
 	Delta        OpenAIChatMessage `json:"delta"`
-	Thought      string            `json:"reasoning_content,omitempty"`
 	FinishReason *string           `json:"finish_reason"`
 }
 

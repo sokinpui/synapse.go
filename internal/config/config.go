@@ -3,58 +3,40 @@ package config
 import (
 	"log"
 	"os"
-	"github.com/fsnotify/fsnotify"
-	"github.com/spf13/viper"
+
+	"gopkg.in/yaml.v3"
 )
 
 type Config struct {
 	Server struct {
-		HTTPPort int `mapstructure:"http_port"`
-	} `mapstructure:"server"`
+		HTTPPort int `yaml:"http_port"`
+	} `yaml:"server"`
 	Worker struct {
-		ConcurrencyMultiplier int `mapstructure:"concurrency_multiplier"`
-	} `mapstructure:"worker"`
+		ConcurrencyMultiplier int `yaml:"concurrency_multiplier"`
+	} `yaml:"worker"`
 	Models struct {
-		Gemini     ProviderConfig `mapstructure:"gemini"`
-		OpenRouter ProviderConfig `mapstructure:"openrouter"`
-	} `mapstructure:"models"`
+		Gemini     ProviderConfig `yaml:"gemini"`
+		OpenRouter ProviderConfig `yaml:"openrouter"`
+	} `yaml:"models"`
 }
 
 type ProviderConfig struct {
-	Codes []string `mapstructure:"codes"`
+	Codes []string `yaml:"codes"`
 }
 
+// Load reads configuration from the YAML file.
 func Load() *Config {
-	path := os.Getenv("SYNAPSE_CONFIG_PATH")
-	if path == "" {
-		path = "config.yaml"
+	path := "config.yaml"
+	data, err := os.ReadFile(path)
+	if err != nil {
+		log.Fatalf("failed to read config file at %s: %v. Make sure it exists.", path, err)
 	}
 
-	viper.SetConfigFile(path)
-	viper.SetConfigType("yaml")
-
-	if err := viper.ReadInConfig(); err != nil {
-		log.Fatalf("Error reading config file: %s", err)
-	}
-
-	viper.WatchConfig()
-
-	return getConfig()
-}
-
-func (c *Config) OnUpdate(fn func(*Config)) {
-	viper.OnConfigChange(func(e fsnotify.Event) {
-		if updated := getConfig(); updated != nil {
-			fn(updated)
-		}
-	})
-}
-
-func getConfig() *Config {
 	var cfg Config
-	if err := viper.Unmarshal(&cfg); err != nil {
-		log.Printf("Unable to decode into struct: %v", err)
-		return nil
+	err = yaml.Unmarshal(data, &cfg)
+	if err != nil {
+		log.Fatalf("failed to unmarshal config: %v", err)
 	}
+
 	return &cfg
 }

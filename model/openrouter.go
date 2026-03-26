@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
-	"github.com/sokinpui/synapse.go/internal/color"
 	"os"
 
 	openrouter "github.com/revrost/go-openrouter"
@@ -21,12 +19,6 @@ func newOpenRouterProvider(cfg *config.Config) (map[string]LLM, error) {
 
 	models := make(map[string]LLM)
 	ctx := context.Background()
-
-	keyCount := 0
-	if apiKey != "" {
-		keyCount = 1
-	}
-	log.Printf("Provider %s initialized with %d keys", color.GreenString("OpenRouter"), keyCount)
 
 	for _, code := range cfg.Models.OpenRouter.Codes {
 		model, err := NewOpenRouterModel(ctx, code, apiKey)
@@ -51,7 +43,7 @@ func NewOpenRouterModel(ctx context.Context, modelCode string, apiKey string) (*
 	}, nil
 }
 
-func (orm *OpenRouterModel) Generate(ctx context.Context, prompt string, images [][]byte, config *Config) (*StreamChunk, error) {
+func (orm *OpenRouterModel) Generate(ctx context.Context, prompt string, images [][]byte, config *Config) (string, error) {
 	/* TODO: don't support Image yet */
 	client := openrouter.NewClient(orm.apiKey)
 	req := openrouter.ChatCompletionRequest{
@@ -79,22 +71,14 @@ func (orm *OpenRouterModel) Generate(ctx context.Context, prompt string, images 
 	response, err := client.CreateChatCompletion(ctx, req)
 
 	if err != nil {
-		return nil, fmt.Errorf("OpenRouter API error: %w", err)
+		return "", fmt.Errorf("OpenRouter API error: %w", err)
 	}
 
-	thought := ""
-	if response.Choices[0].Message.ReasoningContent != nil {
-		thought = *response.Choices[0].Message.ReasoningContent
-	}
-
-	return &StreamChunk{
-		Text:    response.Choices[0].Message.Content.Text,
-		Thought: thought,
-	}, nil
+	return response.Choices[0].Message.Content.Text, nil
 }
 
-func (orm *OpenRouterModel) GenerateStream(ctx context.Context, prompt string, images [][]byte, config *Config) (<-chan StreamChunk, <-chan error) {
-	outCh := make(chan StreamChunk)
+func (orm *OpenRouterModel) GenerateStream(ctx context.Context, prompt string, images [][]byte, config *Config) (<-chan string, <-chan error) {
+	outCh := make(chan string)
 	errCh := make(chan error, 1)
 
 	go func() {
@@ -138,10 +122,7 @@ func (orm *OpenRouterModel) GenerateStream(ctx context.Context, prompt string, i
 			if err != nil {
 				break
 			}
-			outCh <- StreamChunk{
-				Text:    response.Choices[0].Delta.Content,
-				Thought: response.Choices[0].Delta.ReasoningContent,
-			}
+			outCh <- response.Choices[0].Delta.Content
 		}
 	}()
 

@@ -17,6 +17,8 @@ import (
 	"github.com/sokinpui/synapse.go/model"
 )
 
+const sentinel = "[DONE]"
+
 type HTTPServer struct {
 	broker      *broker.MemoryBroker
 	llmRegistry *model.Registry
@@ -77,11 +79,11 @@ func (s *HTTPServer) handleGenerate(w http.ResponseWriter, r *http.Request) {
 	s.broker.Enqueue(&req)
 
 	if req.Stream {
-		s.streamHTTPResult(w, r, resCh)
+		s.streamHTTPResults(w, r, resCh)
 		return
 	}
 
-	s.unaryHTTPResult(w, resCh)
+	s.aggregateHTTPResults(w, resCh)
 }
 
 func (s *HTTPServer) handleOpenAIChatCompletions(w http.ResponseWriter, r *http.Request) {
@@ -112,13 +114,13 @@ func (s *HTTPServer) handleOpenAIChatCompletions(w http.ResponseWriter, r *http.
 	s.broker.Enqueue(task)
 
 	if task.Stream {
-		s.streamOpenAIResult(w, r, task, resCh)
+		s.streamOpenAIResults(w, r, task, resCh)
 		return
 	}
-	s.unaryOpenAIResult(w, task, resCh)
+	s.aggregateOpenAIResults(w, task, resCh)
 }
 
-func (s *HTTPServer) streamHTTPResult(w http.ResponseWriter, r *http.Request, ch <-chan model.StreamChunk) {
+func (s *HTTPServer) streamHTTPResults(w http.ResponseWriter, r *http.Request, ch <-chan string) {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
@@ -134,12 +136,10 @@ func (s *HTTPServer) streamHTTPResult(w http.ResponseWriter, r *http.Request, ch
 		case <-r.Context().Done():
 			return
 		case data, ok := <-ch:
-			if !ok || data == model.Sentinel {
-				io.WriteString(w, "data: [DONE]\n\n")
-				flusher.Flush()
+			if !ok || data == sentinel {
 				return
 			}
-			jsonData, err := json.Marshal(data)
+			jsonData, err := json.Marshal(map[string]string{"text": data})
 			if err != nil {
 				log.Printf("Error marshalling stream response: %v", err)
 				continue
@@ -150,25 +150,22 @@ func (s *HTTPServer) streamHTTPResult(w http.ResponseWriter, r *http.Request, ch
 	}
 }
 
-func (s *HTTPServer) unaryHTTPResult(w http.ResponseWriter, ch <-chan model.StreamChunk) {
-	var textSb strings.Builder
-	var thoughtSb strings.Builder
+func (s *HTTPServer) aggregateHTTPResults(w http.ResponseWriter, ch <-chan string) {
+	var sb strings.Builder
 	for data := range ch {
-		if data == model.Sentinel {
+		if data == sentinel {
 			break
 		}
-		textSb.WriteString(data.Text)
-		thoughtSb.WriteString(data.Thought)
+		sb.WriteString(data)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(model.StreamChunk{
-		Text:    textSb.String(),
-		Thought: thoughtSb.String(),
+	json.NewEncoder(w).Encode(map[string]string{
+		"text": sb.String(),
 	})
 }
 
-func (s *HTTPServer) streamOpenAIResult(w http.ResponseWriter, r *http.Request, task *models.GenerationTask, ch <-chan model.StreamChunk) {
+func (s *HTTPServer) streamOpenAIResults(w http.ResponseWriter, r *http.Request, task *models.GenerationTask, ch <-chan string) {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
@@ -186,7 +183,7 @@ func (s *HTTPServer) streamOpenAIResult(w http.ResponseWriter, r *http.Request, 
 		case <-r.Context().Done():
 			return
 		case data, ok := <-ch:
-			if !ok || data == model.Sentinel {
+			if !ok || data == sentinel {
 				io.WriteString(w, "data: [DONE]\n\n")
 				flusher.Flush()
 				return
@@ -201,8 +198,7 @@ func (s *HTTPServer) streamOpenAIResult(w http.ResponseWriter, r *http.Request, 
 					{
 						Index: 0,
 						Delta: models.OpenAIChatMessage{
-							Content: data.Text,
-							Thought: data.Thought,
+							Content: data,
 						},
 						FinishReason: nil,
 					},
@@ -219,15 +215,13 @@ func (s *HTTPServer) streamOpenAIResult(w http.ResponseWriter, r *http.Request, 
 	}
 }
 
-func (s *HTTPServer) unaryOpenAIResult(w http.ResponseWriter, task *models.GenerationTask, ch <-chan model.StreamChunk) {
-	var textSb strings.Builder
-	var thoughtSb strings.Builder
+func (s *HTTPServer) aggregateOpenAIResults(w http.ResponseWriter, task *models.GenerationTask, ch <-chan string) {
+	var sb strings.Builder
 	for data := range ch {
-		if data == model.Sentinel {
+		if data == sentinel {
 			break
 		}
-		textSb.WriteString(data.Text)
-		thoughtSb.WriteString(data.Thought)
+		sb.WriteString(data)
 	}
 
 	now := time.Now().Unix()
@@ -242,8 +236,7 @@ func (s *HTTPServer) unaryOpenAIResult(w http.ResponseWriter, task *models.Gener
 				Index: 0,
 				Message: models.OpenAIChatMessage{
 					Role:    "assistant",
-					Content: textSb.String(),
-					Thought: thoughtSb.String(),
+					Content: sb.String(),
 				},
 				FinishReason: "stop",
 			},

@@ -1,8 +1,5 @@
 #!/bin/bash
 
-echo "clean up old binaries..."
-rm -rf bin
-
 echo "Building Synapse Server..."
 
 echo "Tidying Go modules..."

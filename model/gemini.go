@@ -3,15 +3,11 @@ package model
 import (
 	"context"
 	"fmt"
-	"log"
-	"os"
-	"strings"
-	"time"
-
-	"github.com/sokinpui/synapse.go/internal/color"
 	"github.com/sokinpui/synapse.go/internal/config"
 	"google.golang.org/genai"
 	"google.golang.org/genai/tokenizer"
+	"os"
+	"strings"
 )
 
 func init() {
@@ -26,9 +22,7 @@ func newGeminiProvider(cfg *config.Config) (map[string]LLM, error) {
 
 	models := make(map[string]LLM)
 	ctx := context.Background()
-	balancer := NewKeyBalancer("Gemini", apiKeys)
-
-	log.Printf("Provider %s initialized with %d keys", color.GreenString("Gemini"), balancer.KeyCount())
+	balancer := NewKeyBalancer(apiKeys)
 
 	for _, code := range cfg.Models.Gemini.Codes {
 		model, err := NewGeminiModel(ctx, code, balancer)
@@ -53,64 +47,48 @@ func NewGeminiModel(ctx context.Context, modelCode string, balancer *KeyBalancer
 	}, nil
 }
 
-func (m *GeminiModel) Generate(ctx context.Context, prompt string, images [][]byte, config *Config) (*StreamChunk, error) {
+// Generate performs a non-streaming text generation.
+func (m *GeminiModel) Generate(ctx context.Context, prompt string, images [][]byte, config *Config) (string, error) {
 	if m.balancer.KeyCount() == 0 {
-		return nil, fmt.Errorf("%w: API key is required for generation", ErrConfiguration)
+		return "", fmt.Errorf("%w: API key is required for generation", ErrConfiguration)
 	}
 
 	content, err := buildContent(prompt, images)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
-	genConfig := getGenConfig(m.model, config)
+	genConfig := getGenConfig(config)
 	var lastErr error
 
 	for i := 0; i < m.balancer.KeyCount(); i++ {
 		apiKey := m.balancer.PickKey()
 		client, err := genai.NewClient(ctx, &genai.ClientConfig{APIKey: apiKey, Backend: genai.BackendGeminiAPI})
 		if err != nil {
-			log.Printf("%s API Key failed for provider Gemini: %v", color.YellowString("Warning"), err)
 			lastErr = fmt.Errorf("failed to create genai client: %w", err)
 			continue
 		}
 
 		resp, err := client.Models.GenerateContent(ctx, m.model, content, genConfig)
 		if err != nil {
-			log.Printf("%s API Key failed for provider Gemini: %v", color.YellowString("Warning"), err)
 			lastErr = fmt.Errorf("%w: %v", ErrGeneration, err)
-
-			if i < m.balancer.KeyCount()-1 {
-				select {
-				case <-ctx.Done():
-					return nil, ctx.Err()
-				case <-time.After(2 * time.Second):
-				}
-			}
 			continue
 		}
 
-		if len(resp.Candidates) == 0 || resp.Candidates[0].Content == nil {
-			return nil, fmt.Errorf("%w: no content in response", ErrGeneration)
+		if len(resp.Candidates) == 0 || len(resp.Candidates[0].Content.Parts) == 0 {
+			return "", fmt.Errorf("%w: no content in response", ErrGeneration)
 		}
 
-		res := &StreamChunk{}
-		for _, part := range resp.Candidates[0].Content.Parts {
-			if part.Thought {
-				res.Thought += part.Text
-				continue
-			}
-			res.Text += part.Text
-		}
-		return res, nil
+		return resp.Text(), nil
 	}
 
-	return nil, fmt.Errorf("all API keys failed: %w", lastErr)
+	return "", fmt.Errorf("all API keys failed: %w", lastErr)
 }
 
-func (m *GeminiModel) GenerateStream(ctx context.Context, prompt string, images [][]byte, config *Config) (<-chan StreamChunk, <-chan error) {
-	genConfig := getGenConfig(m.model, config)
-	outCh := make(chan StreamChunk)
+// GenerateStream performs a streaming text generation.
+func (m *GeminiModel) GenerateStream(ctx context.Context, prompt string, images [][]byte, config *Config) (<-chan string, <-chan error) {
+	genConfig := getGenConfig(config)
+	outCh := make(chan string)
 	errCh := make(chan error, 1)
 
 	go func() {
@@ -128,14 +106,12 @@ func (m *GeminiModel) GenerateStream(ctx context.Context, prompt string, images 
 			return
 		}
 
-		sentAny := false
 		var lastErr error
 
 		for i := 0; i < m.balancer.KeyCount(); i++ {
 			apiKey := m.balancer.PickKey()
 			client, err := genai.NewClient(ctx, &genai.ClientConfig{APIKey: apiKey, Backend: genai.BackendGeminiAPI})
 			if err != nil {
-				log.Printf("%s API Key failed for provider Gemini: %v", color.YellowString("Warning"), err)
 				lastErr = fmt.Errorf("failed to create genai client: %w", err)
 				continue
 			}
@@ -146,45 +122,18 @@ func (m *GeminiModel) GenerateStream(ctx context.Context, prompt string, images 
 					if err != nil {
 						return err
 					}
-					if resp == nil || len(resp.Candidates) == 0 || resp.Candidates[0].Content == nil {
-						continue
-					}
-					for _, part := range resp.Candidates[0].Content.Parts {
-						chunk := StreamChunk{}
-						if part.Thought {
-							chunk.Thought = part.Text
-						} else {
-							if part.Text == "" {
-								continue
-							}
-							chunk.Text = part.Text
-						}
-						outCh <- chunk
-						sentAny = true
+					if resp != nil && len(resp.Candidates) > 0 && len(resp.Candidates[0].Content.Parts) > 0 {
+						outCh <- resp.Text()
 					}
 				}
 				return nil
 			}()
 
 			if streamErr != nil {
-				if sentAny {
-					errCh <- streamErr
-					return
-				}
-				log.Printf("%s API Key failed for provider Gemini: %v", color.YellowString("Warning"), err)
 				lastErr = fmt.Errorf("%w: %v", ErrGeneration, streamErr)
-
-				if i < m.balancer.KeyCount()-1 {
-					select {
-					case <-ctx.Done():
-						errCh <- ctx.Err()
-						return
-					case <-time.After(2 * time.Second):
-					}
-				}
 				continue
 			}
-			return
+			return // Success
 		}
 
 		errCh <- fmt.Errorf("all API keys failed: %w", lastErr)
@@ -206,6 +155,7 @@ func buildContent(prompt string, images [][]byte) ([]*genai.Content, error) {
 	return contents, nil
 }
 
+// CountTokens counts the number of tokens in a prompt.
 func (m *GeminiModel) CountTokens(prompt string) (int, error) {
 	tok, err := tokenizer.NewLocalTokenizer("gemini-2.5-flash")
 	if err != nil {
@@ -220,21 +170,28 @@ func (m *GeminiModel) CountTokens(prompt string) (int, error) {
 	return int(ntoks.TotalTokens), nil
 }
 
-func getGenConfig(modelCode string, config *Config) *genai.GenerateContentConfig {
-	var thinking *genai.ThinkingConfig
-	if strings.Contains(modelCode, "thinking") || strings.Contains(modelCode, "gemini-3") {
-		thinking = &genai.ThinkingConfig{IncludeThoughts: true}
+func getGenConfig(config *Config) *genai.GenerateContentConfig {
+	if config == nil {
+		return &genai.GenerateContentConfig{}
 	}
 
-	if config == nil {
-		return &genai.GenerateContentConfig{ThinkingConfig: thinking}
-	}
+	// var tools = []*genai.Tool{
+	// 	{
+	// 		GoogleSearch: &genai.GoogleSearch{},
+	// 		URLContext:   &genai.URLContext{},
+	// 	},
+	// }
+
+	// disable tools if code is gemini-3-flash-preview
+	// if m.model == "gemini-3-flash-preview" {
+	// 	tools = nil
+	// }
 
 	return &genai.GenerateContentConfig{
 		Temperature:     config.Temperature,
 		TopP:            config.TopP,
 		TopK:            config.TopK,
 		MaxOutputTokens: config.OutputLength,
-		ThinkingConfig:  thinking,
+		// Tools:           tools,
 	}
 }

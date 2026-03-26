@@ -28,7 +28,6 @@ type GenerateRequest struct {
 
 type Result struct {
 	Text        string
-	Thought     string
 	Err         error
 	IsKeepAlive bool
 }
@@ -121,14 +120,13 @@ func (c *httpClient) handleUnary(body io.ReadCloser, ch chan<- Result) {
 	defer close(ch)
 
 	var res struct {
-		Text    string `json:"text"`
-		Thought string `json:"thought"`
+		Text string `json:"text"`
 	}
 	if err := json.NewDecoder(body).Decode(&res); err != nil {
 		ch <- Result{Err: err}
 		return
 	}
-	ch <- Result{Text: res.Text, Thought: res.Thought}
+	ch <- Result{Text: res.Text}
 }
 
 func (c *httpClient) handleStream(body io.ReadCloser, ch chan<- Result) {
@@ -148,13 +146,12 @@ func (c *httpClient) handleStream(body io.ReadCloser, ch chan<- Result) {
 		}
 
 		var res struct {
-			Text    string `json:"text"`
-			Thought string `json:"thought"`
+			Text string `json:"text"`
 		}
 		if err := json.Unmarshal([]byte(data), &res); err != nil {
 			continue
 		}
-		ch <- Result{Text: res.Text, Thought: res.Thought}
+		ch <- Result{Text: res.Text}
 	}
 
 	if err := scanner.Err(); err != nil {
