@@ -3,6 +3,7 @@ package model
 import (
 	"context"
 	"fmt"
+	"log"
 	"github.com/sokinpui/synapse.go/internal/config"
 	"google.golang.org/genai"
 	"google.golang.org/genai/tokenizer"
@@ -66,12 +67,14 @@ func (m *GeminiModel) Generate(ctx context.Context, prompt string, images [][]by
 		client, err := genai.NewClient(ctx, &genai.ClientConfig{APIKey: apiKey, Backend: genai.BackendGeminiAPI})
 		if err != nil {
 			lastErr = fmt.Errorf("failed to create genai client: %w", err)
+			log.Printf("Gemini API key failed for model %s, retrying with next key... Error: %v", m.model, err)
 			continue
 		}
 
 		resp, err := client.Models.GenerateContent(ctx, m.model, content, genConfig)
 		if err != nil {
 			lastErr = fmt.Errorf("%w: %v", ErrGeneration, err)
+			log.Printf("Gemini API key failed for model %s, retrying with next key... Error: %v", m.model, err)
 			continue
 		}
 
@@ -113,6 +116,7 @@ func (m *GeminiModel) GenerateStream(ctx context.Context, prompt string, images 
 			client, err := genai.NewClient(ctx, &genai.ClientConfig{APIKey: apiKey, Backend: genai.BackendGeminiAPI})
 			if err != nil {
 				lastErr = fmt.Errorf("failed to create genai client: %w", err)
+				log.Printf("Gemini API key failed for model %s (stream), retrying with next key... Error: %v", m.model, err)
 				continue
 			}
 
@@ -131,6 +135,7 @@ func (m *GeminiModel) GenerateStream(ctx context.Context, prompt string, images 
 
 			if streamErr != nil {
 				lastErr = fmt.Errorf("%w: %v", ErrGeneration, streamErr)
+				log.Printf("Gemini API key failed for model %s (stream), retrying with next key... Error: %v", m.model, streamErr)
 				continue
 			}
 			return // Success
