@@ -71,7 +71,7 @@ func (s *HTTPServer) handleGenerate(w http.ResponseWriter, r *http.Request) {
 
 	taskID := uuid.New().String()
 	req.TaskID = taskID
-	log.Printf("-> %s (HTTP), assigned task_id: %s", color.BlueString("Received request"), taskID)
+	log.Printf("-> %s (HTTP) [%s], assigned task_id: %s", color.BlueString("Received request"), req.ModelCode, taskID)
 
 	resCh := s.broker.Subscribe(taskID)
 	defer s.broker.Unsubscribe(taskID)
@@ -94,7 +94,7 @@ func (s *HTTPServer) handleOpenAIChatCompletions(w http.ResponseWriter, r *http.
 	}
 
 	taskID := uuid.New().String()
-	log.Printf("-> %s (OpenAI), assigned task_id: %s", color.BlueString("Received request"), taskID)
+	log.Printf("-> %s (OpenAI) [%s], assigned task_id: %s", color.BlueString("Received request"), oaiReq.Model, taskID)
 
 	prompt, images := s.parseOpenAIMessages(oaiReq.Messages)
 	task := &models.GenerationTask{

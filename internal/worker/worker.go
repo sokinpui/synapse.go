@@ -60,8 +60,8 @@ func (w *GenAIWorker) Run(ctx context.Context) {
 }
 
 func (w *GenAIWorker) processTask(ctx context.Context, task *models.GenerationTask) {
-	log.Printf("-> %s task: %s", color.YellowString("Processing"), task.TaskID)
-	defer log.Printf("<- %s task: %s", color.GreenString("Finished"), task.TaskID)
+	log.Printf("-> %s task: %s [%s]", color.YellowString("Processing"), task.TaskID, task.ModelCode)
+	defer log.Printf("<- %s task: %s [%s]", color.GreenString("Finished"), task.TaskID, task.ModelCode)
 
 	taskCtx, cancelTask := context.WithCancel(ctx)
 	defer cancelTask()
