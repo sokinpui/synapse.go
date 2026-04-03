@@ -1,8 +1,8 @@
 package models
 
 type OpenAIChatMessage struct {
-	Role    string `json:"role"`
-	Content any    `json:"content"` // Can be string or []MessageContentPart
+	Role    string `json:"role,omitempty"`
+	Content any    `json:"content,omitempty"` // Can be string or []MessageContentPart
 }
 
 type MessageContentPart struct {
@@ -27,12 +27,19 @@ type OpenAIChatRequest struct {
 	MaxTokens   int32               `json:"max_tokens,omitempty"`
 }
 
+type Usage struct {
+	PromptTokens     int `json:"prompt_tokens"`
+	CompletionTokens int `json:"completion_tokens"`
+	TotalTokens      int `json:"total_tokens"`
+}
+
 type OpenAIChatResponse struct {
 	ID      string   `json:"id"`
 	Object  string   `json:"object"`
 	Created int64    `json:"created"`
 	Model   string   `json:"model"`
 	Choices []Choice `json:"choices"`
+	Usage   Usage    `json:"usage"`
 }
 
 type Choice struct {
@@ -47,6 +54,7 @@ type ChatCompletionChunk struct {
 	Created int64         `json:"created"`
 	Model   string        `json:"model"`
 	Choices []ChunkChoice `json:"choices"`
+	Usage   *Usage        `json:"usage,omitempty"`
 }
 
 type ChunkChoice struct {

@@ -177,6 +177,7 @@ func (s *HTTPServer) streamOpenAIResults(w http.ResponseWriter, r *http.Request,
 	}
 
 	now := time.Now().Unix()
+	first := true
 
 	for {
 		select {
@@ -184,6 +185,26 @@ func (s *HTTPServer) streamOpenAIResults(w http.ResponseWriter, r *http.Request,
 			return
 		case data, ok := <-ch:
 			if !ok || data == sentinel {
+				stop := "stop"
+				finalChunk := models.ChatCompletionChunk{
+					ID:      fmt.Sprintf("chatcmpl-%s", task.TaskID),
+					Object:  "chat.completion.chunk",
+					Created: now,
+					Model:   task.ModelCode,
+					Choices: []models.ChunkChoice{
+						{
+							Index:        0,
+							Delta:        models.OpenAIChatMessage{},
+							FinishReason: &stop,
+						},
+					},
+				}
+
+				if jsonData, err := json.Marshal(finalChunk); err == nil {
+					fmt.Fprintf(w, "data: %s\n\n", jsonData)
+					flusher.Flush()
+				}
+
 				io.WriteString(w, "data: [DONE]\n\n")
 				flusher.Flush()
 				return
@@ -194,14 +215,19 @@ func (s *HTTPServer) streamOpenAIResults(w http.ResponseWriter, r *http.Request,
 				Object:  "chat.completion.chunk",
 				Created: now,
 				Model:   task.ModelCode,
-				Choices: []models.ChunkChoice{
-					{
-						Index: 0,
-						Delta: models.OpenAIChatMessage{
-							Content: data,
-						},
-						FinishReason: nil,
-					},
+			}
+
+			delta := models.OpenAIChatMessage{Content: data}
+			if first {
+				delta.Role = "assistant"
+				first = false
+			}
+
+			chunk.Choices = []models.ChunkChoice{
+				{
+					Index:        0,
+					Delta:        delta,
+					FinishReason: nil,
 				},
 			}
 
@@ -240,6 +266,11 @@ func (s *HTTPServer) aggregateOpenAIResults(w http.ResponseWriter, task *models.
 				},
 				FinishReason: "stop",
 			},
+		},
+		Usage: models.Usage{
+			PromptTokens:     0,
+			CompletionTokens: 0,
+			TotalTokens:      0,
 		},
 	}
 
