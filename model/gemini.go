@@ -63,18 +63,18 @@ func (m *GeminiModel) Generate(ctx context.Context, prompt string, images [][]by
 	var lastErr error
 
 	for i := 0; i < m.balancer.KeyCount(); i++ {
-		apiKey := m.balancer.PickKey()
+		apiKey, keyIdx := m.balancer.PickKey()
 		client, err := genai.NewClient(ctx, &genai.ClientConfig{APIKey: apiKey, Backend: genai.BackendGeminiAPI})
 		if err != nil {
 			lastErr = fmt.Errorf("failed to create genai client: %w", err)
-			log.Printf("Gemini API key failed for model %s, retrying with next key... Error: %v", m.model, err)
+			log.Printf("Gemini API key [#%d] failed for model %s, retrying... Error: %v", keyIdx, m.model, err)
 			continue
 		}
 
 		resp, err := client.Models.GenerateContent(ctx, m.model, content, genConfig)
 		if err != nil {
 			lastErr = fmt.Errorf("%w: %v", ErrGeneration, err)
-			log.Printf("Gemini API key failed for model %s, retrying with next key... Error: %v", m.model, err)
+			log.Printf("Gemini API key [#%d] failed for model %s, retrying... Error: %v", keyIdx, m.model, err)
 			continue
 		}
 
@@ -112,11 +112,11 @@ func (m *GeminiModel) GenerateStream(ctx context.Context, prompt string, images 
 		var lastErr error
 
 		for i := 0; i < m.balancer.KeyCount(); i++ {
-			apiKey := m.balancer.PickKey()
+			apiKey, keyIdx := m.balancer.PickKey()
 			client, err := genai.NewClient(ctx, &genai.ClientConfig{APIKey: apiKey, Backend: genai.BackendGeminiAPI})
 			if err != nil {
 				lastErr = fmt.Errorf("failed to create genai client: %w", err)
-				log.Printf("Gemini API key failed for model %s (stream), retrying with next key... Error: %v", m.model, err)
+				log.Printf("Gemini API key [#%d] failed for model %s (stream), retrying... Error: %v", keyIdx, m.model, err)
 				continue
 			}
 
@@ -135,7 +135,7 @@ func (m *GeminiModel) GenerateStream(ctx context.Context, prompt string, images 
 
 			if streamErr != nil {
 				lastErr = fmt.Errorf("%w: %v", ErrGeneration, streamErr)
-				log.Printf("Gemini API key failed for model %s (stream), retrying with next key... Error: %v", m.model, streamErr)
+				log.Printf("Gemini API key [#%d] failed for model %s (stream), retrying... Error: %v", keyIdx, m.model, streamErr)
 				continue
 			}
 			return // Success

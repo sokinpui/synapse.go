@@ -22,12 +22,12 @@ func NewKeyBalancer(apiKeys []string) *KeyBalancer {
 	return &KeyBalancer{keys: states}
 }
 
-func (b *KeyBalancer) PickKey() string {
+func (b *KeyBalancer) PickKey() (string, int) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
 	if len(b.keys) == 0 {
-		return ""
+		return "", -1
 	}
 
 	for i := range b.keys {
@@ -42,12 +42,12 @@ func (b *KeyBalancer) PickKey() string {
 			b.reset()
 		}
 
-		return key
+		return key, i
 	}
 
 	b.reset()
 	b.keys[0].Used = true
-	return b.keys[0].Value
+	return b.keys[0].Value, 0
 }
 
 func (b *KeyBalancer) KeyCount() int {
