@@ -17,9 +17,16 @@ func init() {
 
 func newGeminiProvider(cfg *config.Config) (map[string]LLM, error) {
 	apiKeysVar := os.Getenv("GENAI_API_KEYS")
-	apiKeys := strings.FieldsFunc(apiKeysVar, func(r rune) bool {
-		return r == ',' || r == '\n' || r == '\r' || r == '\t' || r == ' '
+	rawKeys := strings.FieldsFunc(apiKeysVar, func(r rune) bool {
+		return r == ',' || r == '\n' || r == '\r' || r == '\t' || r == ' ' || r == '\\'
 	})
+
+	var apiKeys []string
+	for _, k := range rawKeys {
+		if trimmed := strings.TrimSpace(k); trimmed != "" {
+			apiKeys = append(apiKeys, trimmed)
+		}
+	}
 
 	models := make(map[string]LLM)
 	ctx := context.Background()
