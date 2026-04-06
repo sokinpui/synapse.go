@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"os"
+	"strings"
 
 	openrouter "github.com/revrost/go-openrouter"
 	"github.com/sokinpui/synapse.go/internal/config"
@@ -15,37 +17,60 @@ func init() {
 }
 
 func newOpenRouterProvider(cfg *config.Config) (map[string]LLM, error) {
-	apiKey := os.Getenv("OPENROUTER_API_KEY")
+	apiKeysVar := os.Getenv("OPENROUTER_API_KEYS")
+	if apiKeysVar == "" {
+		apiKeysVar = os.Getenv("OPENROUTER_API_KEY")
+	}
+
+	rawKeys := strings.FieldsFunc(apiKeysVar, func(r rune) bool {
+		return r == ',' || r == '\n' || r == '\r' || r == '\t' || r == ' ' || r == '\\'
+	})
+
+	var apiKeys []string
+	for _, k := range rawKeys {
+		if trimmed := strings.TrimSpace(k); trimmed != "" {
+			apiKeys = append(apiKeys, trimmed)
+		}
+	}
+
+	log.Printf("OpenRouter provider initialized with %d API keys", len(apiKeys))
 
 	models := make(map[string]LLM)
 	ctx := context.Background()
+	balancer := NewKeyBalancer(apiKeys)
 
 	for _, code := range cfg.Models.OpenRouter.Codes {
-		model, err := NewOpenRouterModel(ctx, code, apiKey)
+		model, err := NewOpenRouterModel(ctx, code, balancer)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create Gemini model '%s': %w", code, err)
+			return nil, fmt.Errorf("failed to create OpenRouter model '%s': %w", code, err)
 		}
 		models[code] = model
 	}
-
 	return models, nil
 }
 
 type OpenRouterModel struct {
-	model  string
-	apiKey string
+	model    string
+	balancer *KeyBalancer
 }
 
-func NewOpenRouterModel(ctx context.Context, modelCode string, apiKey string) (*OpenRouterModel, error) {
+func NewOpenRouterModel(ctx context.Context, modelCode string, balancer *KeyBalancer) (*OpenRouterModel, error) {
 	return &OpenRouterModel{
-		model:  modelCode,
-		apiKey: apiKey,
+		model:    modelCode,
+		balancer: balancer,
 	}, nil
 }
 
 func (orm *OpenRouterModel) Generate(ctx context.Context, prompt string, images [][]byte, config *Config) (string, error) {
+	if orm.balancer.KeyCount() == 0 {
+		return "", fmt.Errorf("%w: API key is required for OpenRouter", ErrConfiguration)
+	}
+
+	apiKey, keyIdx := orm.balancer.PickKey()
+	log.Printf("[%s] Attempting generation with API key #%d", orm.model, keyIdx)
+
 	/* TODO: don't support Image yet */
-	client := openrouter.NewClient(orm.apiKey)
+	client := openrouter.NewClient(apiKey)
 	req := openrouter.ChatCompletionRequest{
 		Model: orm.model,
 		Messages: []openrouter.ChatCompletionMessage{
@@ -85,7 +110,15 @@ func (orm *OpenRouterModel) GenerateStream(ctx context.Context, prompt string, i
 		defer close(outCh)
 		defer close(errCh)
 
-		client := openrouter.NewClient(orm.apiKey)
+		if orm.balancer.KeyCount() == 0 {
+			errCh <- fmt.Errorf("%w: API key is required for OpenRouter", ErrConfiguration)
+			return
+		}
+
+		apiKey, keyIdx := orm.balancer.PickKey()
+		log.Printf("[%s] Attempting stream generation with API key #%d", orm.model, keyIdx)
+
+		client := openrouter.NewClient(apiKey)
 		req := openrouter.ChatCompletionRequest{
 			Model: orm.model,
 			Messages: []openrouter.ChatCompletionMessage{

@@ -29,6 +29,8 @@ func newGeminiProvider(cfg *config.Config) (map[string]LLM, error) {
 		}
 	}
 
+	log.Printf("Gemini provider initialized with %d API keys", len(apiKeys))
+
 	models := make(map[string]LLM)
 	ctx := context.Background()
 	balancer := NewKeyBalancer(apiKeys)
@@ -76,6 +78,8 @@ func (m *GeminiModel) Generate(ctx context.Context, prompt string, images [][]by
 		}
 
 		apiKey, keyIdx := m.balancer.PickKey()
+		log.Printf("[%s] Attempting generation with API key #%d", m.model, keyIdx)
+
 		client, err := genai.NewClient(ctx, &genai.ClientConfig{APIKey: apiKey, Backend: genai.BackendGeminiAPI})
 		if err != nil {
 			lastErr = fmt.Errorf("failed to create genai client: %w", err)
@@ -133,6 +137,8 @@ func (m *GeminiModel) GenerateStream(ctx context.Context, prompt string, images 
 			}
 
 			apiKey, keyIdx := m.balancer.PickKey()
+			log.Printf("[%s] Attempting stream generation with API key #%d", m.model, keyIdx)
+
 			client, err := genai.NewClient(ctx, &genai.ClientConfig{APIKey: apiKey, Backend: genai.BackendGeminiAPI})
 			if err != nil {
 				lastErr = fmt.Errorf("failed to create genai client: %w", err)
